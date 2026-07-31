@@ -1,0 +1,16 @@
+# 编译产物
+target/
+
+# 各服务本地 H2 数据库（含运行时数据，禁止入库）
+data/
+*.db.mv.db
+*.trace.db
+
+# IDE
+.idea/
+*.iml
+.vscode/
+
+# Makefile 运行时产物
+logs/
+.pids/

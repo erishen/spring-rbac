@@ -1,0 +1,22 @@
+server:
+  port: 8761
+
+spring:
+  application:
+    name: eureka-server
+
+eureka:
+  client:
+    register-with-eureka: false
+    fetch-registry: false
+    service-url:
+      defaultZone: http://localhost:8761/eureka
+  # 缩短服务端响应缓存刷新间隔（默认 30000ms），
+  # 否则网关即使频繁拉取也拿不到「刚注册」的实例，导致 lb 解析 503。
+  server:
+    response-cache-update-interval-ms: 3000
+    response-cache-auto-expiration-in-seconds: 60
+
+logging:
+  level:
+    org.springframework: WARN

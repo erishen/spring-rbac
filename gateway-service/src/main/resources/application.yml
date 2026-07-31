@@ -1,0 +1,62 @@
+server:
+  port: 4100
+
+spring:
+  application:
+    name: gateway-service
+  config:
+    import: optional:configserver:http://localhost:8888
+  eureka:
+    client:
+      service-url:
+        defaultZone: http://localhost:8761/eureka
+      # 更频繁拉取注册表，配合 Eureka 服务端响应缓存(3s)快速感知新实例。
+      registry-fetch-interval-seconds: 3
+    # 用环回地址注册（保持一致）。
+    instance:
+      prefer-ip-address: true
+      ip-address: 127.0.0.1
+  cloud:
+    gateway:
+      routes:
+        # 注意：Spring Cloud Gateway 同路由下的多个谓词是 AND 关系，
+        # 因此「匹配 /api/login 或 /api/register」必须用单个 Path 谓词 + 逗号分隔多模式（OR 语义）。
+        - id: auth-public
+          uri: lb://auth-service
+          predicates:
+            - Path=/api/login,/api/register
+        - id: auth-me
+          uri: lb://auth-service
+          predicates:
+            - Path=/api/me
+        - id: rbac-api
+          uri: lb://rbac-service
+          predicates:
+            - Path=/api/check,/api/roles/**,/api/permissions/**,/api/users/**
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,circuitbreakers
+
+logging:
+  level:
+    org.springframework: WARN
+    reactor: WARN
+
+# Resilience4j 熔断：保护网关对 PDP(rbac /api/check) 的跨服务调用。
+# PDP 变慢或错误率升高时熔断打开，避免每个请求都卡等，并 fail-closed 拒绝。
+resilience4j:
+  circuitbreaker:
+    instances:
+      rbac-check:
+        slidingWindowType: COUNT_BASED
+        slidingWindowSize: 10
+        minimumNumberOfCalls: 5
+        failureRateThreshold: 50
+        slowCallDurationThreshold: 800ms
+        slowCallRateThreshold: 50
+        permittedNumberOfCallsInHalfOpenState: 3
+        waitDurationInOpenState: 5s
+        automaticTransitionFromOpenToHalfOpenEnabled: true

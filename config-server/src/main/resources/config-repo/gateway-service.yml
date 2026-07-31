@@ -1,0 +1,3 @@
+app:
+  jwt-secret: "dev-only-secret-change-me-please"
+  jwt-ttl: 86400000
