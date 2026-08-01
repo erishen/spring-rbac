@@ -1,0 +1,114 @@
+services:
+  eureka-server:
+    build:
+      context: .
+      dockerfile: eureka-server/Dockerfile
+    image: spring-rbac/eureka-server:latest
+    ports:
+      - "8761:8761"
+    healthcheck:
+      test: ["CMD", "bash", "-c", "exec 3<>/dev/tcp/127.0.0.1/8761"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+      start_period: 40s
+    command: ["java", "-Xmx256m", "-jar", "/app/app.jar"]
+
+  config-server:
+    build:
+      context: .
+      dockerfile: config-server/Dockerfile
+    image: spring-rbac/config-server:latest
+    ports:
+      - "8888:8888"
+    depends_on:
+      eureka-server:
+        condition: service_healthy
+    # 说明：eureka.client.serviceUrl 是 Map 类型，扁平 env 变量无法可靠绑定，
+    # 故用 JVM 系统属性（最高优先级）经 JAVA_TOOL_OPTIONS 注入。
+    environment:
+      JAVA_TOOL_OPTIONS: "-Deureka.client.serviceUrl.defaultZone=http://eureka-server:8761/eureka -Deureka.instance.prefer-ip-address=true"
+    healthcheck:
+      test: ["CMD", "bash", "-c", "exec 3<>/dev/tcp/127.0.0.1/8888"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+      start_period: 40s
+    command: ["java", "-Xmx256m", "-jar", "/app/app.jar"]
+
+  auth-service:
+    build:
+      context: .
+      dockerfile: auth-service/Dockerfile
+    image: spring-rbac/auth-service:latest
+    ports:
+      - "4101:4101"
+    depends_on:
+      eureka-server:
+        condition: service_healthy
+      config-server:
+        condition: service_healthy
+    environment:
+      JAVA_TOOL_OPTIONS: "-Deureka.client.serviceUrl.defaultZone=http://eureka-server:8761/eureka -Deureka.instance.prefer-ip-address=true -Dspring.config.import=optional:configserver:http://config-server:8888"
+    volumes:
+      - auth-data:/app/data
+    healthcheck:
+      test: ["CMD", "bash", "-c", "exec 3<>/dev/tcp/127.0.0.1/4101"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+      start_period: 40s
+    command: ["java", "-Xmx256m", "-jar", "/app/app.jar"]
+
+  rbac-service:
+    build:
+      context: .
+      dockerfile: rbac-service/Dockerfile
+    image: spring-rbac/rbac-service:latest
+    ports:
+      - "4102:4102"
+    depends_on:
+      eureka-server:
+        condition: service_healthy
+      config-server:
+        condition: service_healthy
+    environment:
+      JAVA_TOOL_OPTIONS: "-Deureka.client.serviceUrl.defaultZone=http://eureka-server:8761/eureka -Deureka.instance.prefer-ip-address=true -Dspring.config.import=optional:configserver:http://config-server:8888"
+    volumes:
+      - rbac-data:/app/data
+    healthcheck:
+      test: ["CMD", "bash", "-c", "exec 3<>/dev/tcp/127.0.0.1/4102"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+      start_period: 40s
+    command: ["java", "-Xmx256m", "-jar", "/app/app.jar"]
+
+  gateway-service:
+    build:
+      context: .
+      dockerfile: gateway-service/Dockerfile
+    image: spring-rbac/gateway-service:latest
+    ports:
+      - "4100:4100"
+    depends_on:
+      eureka-server:
+        condition: service_healthy
+      auth-service:
+        condition: service_healthy
+      rbac-service:
+        condition: service_healthy
+    environment:
+      JAVA_TOOL_OPTIONS: "-Deureka.client.serviceUrl.defaultZone=http://eureka-server:8761/eureka -Deureka.instance.prefer-ip-address=true -Dspring.config.import=optional:configserver:http://config-server:8888"
+    healthcheck:
+      test: ["CMD", "bash", "-c", "exec 3<>/dev/tcp/127.0.0.1/4100"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+      start_period: 40s
+    # 多睡 6s 缓冲 Eureka 注册表传播（服务端缓存 3s + 网关拉取 3s），避免首请求 503
+    command: ["sh", "-c", "sleep 6 && exec java -Xmx256m -jar /app/app.jar"]
+
+volumes:
+  auth-data:
+  rbac-data:

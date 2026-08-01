@@ -1,0 +1,7 @@
+.git
+logs
+data
+.pids
+*.iml
+**/*.log
+**/src

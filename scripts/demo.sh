@@ -6,8 +6,8 @@ set -euo pipefail
 # 避免沙箱/代理把 localhost 也走代理导致失败
 unset HTTP_PROXY HTTPS_PROXY http_proxy https_proxy 2>/dev/null || true
 
-B="http://localhost"
-G="4100"
+B="${DEMO_HOST:-http://localhost}"
+G="${DEMO_PORT:-4100}"
 
 # 从 JSON 取字段：tok "['token']"  -> json.load(stdin)['token']
 tok() { python3 -c "import sys,json;print(json.load(sys.stdin)$1)"; }
