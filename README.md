@@ -1,131 +1,153 @@
-# spring-rbac — RBAC 微服务系统（Spring Boot + Spring Cloud）
+# spring-rbac — RBAC Microservices (Spring Boot + Spring Cloud)
 
-与 `rbac-service`（Node.js 版）等价的 **Spring Boot + Spring Cloud 实现**：在原有「API 网关 + 认证 + RBAC」三服务之上，加了一套 **Spring Cloud 全家桶**——Eureka 服务注册中心、Config Server 配置中心、Spring Cloud Gateway 响应式网关。三个业务服务作为 Eureka Client + Config Client，服务地址不再写死，而是从注册中心解析；业务配置由配置中心统一下发。
+A **Spring Boot + Spring Cloud** implementation equivalent to the `rbac-service` (Node.js) project. On top of the original "API gateway + auth + RBAC" three services, it adds the full **Spring Cloud stack** — Eureka (service discovery), Config Server (configuration), and Spring Cloud Gateway (reactive edge gateway). The three business services act as Eureka + Config clients: service addresses are resolved from the registry instead of being hardcoded, and business config is pushed down centrally.
 
-> 技术栈：Java 17 · Spring Boot 3.2.5 · Spring Cloud 2023.0.3 · Spring Cloud Gateway(WebFlux) · Eureka · Config Server(native) · Spring Data JPA · H2 · Maven（多模块）
+> Tech stack: Java 17 · Spring Boot 3.2.5 · Spring Cloud 2023.0.3 · Spring Cloud Gateway (WebFlux) · Eureka · Config Server (native) · Spring Data JPA · H2 · Maven (multi-module)
 
-## 架构
+## Architecture
 
 ```
                 ┌──────────────────────────────────────────────────────────┐
-   客户端 ─────► │  gateway-service :4100  (Spring Cloud Gateway / PEP)       │
-                │   • 校验 JWT（GlobalFilter）                                 │
-                │   • 边缘鉴权：调 rbac /api/check（lb://rbac-service）         │
-                │   • 路由转发：lb://auth-service / lb://rbac-service           │
+   client ────► │  gateway-service :4100  (Spring Cloud Gateway / PEP)       │
+                │   • JWT validation (GlobalFilter)                          │
+                │   • Edge authz: calls rbac /api/check (lb://rbac-service)   │
+                │   • Route forwarding: lb://auth-service / lb://rbac-service │
                 └───────┬───────────────────────┬───────────────────────────┘
-                        │ 经 Eureka 服务发现        │
+                        │ via Eureka discovery     │
                         ▼ (lb://auth-service)       ▼ (lb://rbac-service)
                 ┌──────────────────┐    ┌──────────────────┐
                 │ auth-service :4101│    │ rbac-service :4102│
-                │ 用户 / JWT 签发    │    │ 角色(继承)/权限/判定 │
+                │ users / JWT issue  │    │ roles(inherit)/perms/check│
                 │ H2: ./data/auth   │    │ H2: ./data/rbac   │
                 └──────────────────┘    └──────────────────┘
 
       ┌──────────────────┐      ┌──────────────────┐
       │ eureka-server :8761│      │ config-server :8888 │
-      │ 服务注册中心        │      │ 配置中心(native)    │
+      │ service registry   │      │ config server (native)│
       └──────────────────┘      └──────────────────┘
 ```
 
-| 服务 | 端口 | 角色 | 数据库 |
+| Service | Port | Role | DB |
 |---|---|---|---|
-| eureka-server | 8761 | 服务注册中心 | 无 |
-| config-server | 8888 | 配置中心（native 后端，配置在 `config-server/src/main/resources/config-repo/`） | 无 |
-| gateway-service | 4100 | Spring Cloud Gateway：JWT 校验(PEP) + 边缘鉴权 + 服务发现路由 | 无 |
-| auth-service | 4101 | 用户注册/登录、JWT 签发与校验（Eureka/Config Client） | H2 `./data/auth` |
-| rbac-service | 4102 | 角色(含继承)/权限/授权关系、有效权限解析、权限判定（Eureka/Config Client） | H2 `./data/rbac` |
+| eureka-server | 8761 | Service registry | — |
+| config-server | 8888 | Config server (native; configs in `config-server/src/main/resources/config-repo/`) | — |
+| gateway-service | 4100 | Spring Cloud Gateway: JWT validation (PEP) + edge authorization + service-discovery routing | — |
+| auth-service | 4101 | User register/login, JWT issue & validation (Eureka/Config client) | H2 `./data/auth` |
+| rbac-service | 4102 | Roles (with inheritance) / permissions / grants, effective-permission resolution, permission check (Eureka/Config client) | H2 `./data/rbac` |
 
-内部服务注册到 Eureka，互联网只能打到网关这一道门（PEP 模式）。
+Internal services register with Eureka; only the gateway is exposed to the outside (PEP pattern).
 
-## 模块结构
+## Module structure
 
 ```
 spring-rbac/
-├── pom.xml                 # 父工程（packaging=pom，含 spring-cloud-dependencies BOM，5 个模块）
-├── eureka-server/          # 服务注册中心（@EnableEurekaServer）
-├── config-server/          # 配置中心（@EnableConfigServer，native 后端）
+├── pom.xml                 # parent (packaging=pom, spring-cloud-dependencies BOM, 5 modules)
+├── eureka-server/          # service registry (@EnableEurekaServer)
+├── config-server/          # config server (@EnableConfigServer, native backend)
 │   └── src/main/resources/config-repo/   # auth-service.yml / rbac-service.yml / gateway-service.yml
-├── auth-service/           # 认证服务（Eureka Client + Config Client）
-├── rbac-service/           # RBAC 服务（Eureka Client + Config Client）
-├── gateway-service/        # Spring Cloud Gateway（WebFlux，GlobalFilter 实现 PEP）
-├── scripts/demo.sh         # 端到端演示
+├── auth-service/           # auth service (Eureka + Config client)
+├── rbac-service/           # RBAC service (Eureka + Config client)
+├── gateway-service/        # Spring Cloud Gateway (WebFlux, PEP via GlobalFilter)
+├── k8s/spring-rbac.yaml    # k3s / Kubernetes manifests (5 Deployments + 5 Services)
+├── docker-compose.yml      # Docker Compose orchestration
+├── scripts/demo.sh         # end-to-end demo
+├── DOCKER.md               # Docker Compose & k3s runbook + troubleshooting
+├── ARCHITECTURE.md         # deep-dive architecture & design decisions
 └── README.md
 ```
 
-## 运行
+## RBAC model & PEP/PDP
 
-### 1. 编译
+Classic *user–role–permission* triple with **role inheritance** (BFS expansion). Authorization is split:
 
-```bash
-mvn clean package -DskipTests
-```
+- **PEP (Policy Enforcement Point)** lives in the gateway — it checks whether the request carries a valid JWT and which permission the target route requires.
+- **PDP (Policy Decision Point)** lives in `rbac-service` — it answers *does this user effectively have this permission*.
 
-> 首次构建需联网从 Maven Central 下载 Spring Cloud 依赖；之后可 `mvn -o ...` 离线。
+Adding a protected route is just one `required-permission` mapping in the gateway; permission logic stays in one place.
 
-### 2. 一键启动（后台，顺序固定）
+## Resilience4j circuit breaker (fail-closed)
 
-```bash
-make start
-```
+The gateway's call to `rbac /api/check` is a synchronous cross-service call, so it is wrapped in a **Resilience4j circuit breaker** (`instance: rbac-check`):
 
-启动顺序：`eureka-server`(8761) → `config-server`(8888) → `auth-service`(4101) / `rbac-service`(4102) / `gateway-service`(4100)。
-`make start` 会先等注册中心与配置中心就绪，再起业务服务，最后等网关 `/health` 可用。
+- `COUNT_BASED` sliding window of 10, `failureRateThreshold: 50%`, `slowCallDurationThreshold: 800ms`, half-open permitted calls 3, open→half-open auto-transition.
+- **Fail-closed**: when the breaker is open (or rbac is unreachable), the gateway returns **403**, never 200. In a security component, deny-by-default beats allow-by-default.
+- Exposed via Actuator (`management.endpoints.web.exposure.include: health,circuitbreakers`).
 
-也可各开终端手动起（注意顺序）：
+## Running
 
-```bash
-java -jar eureka-server/target/eureka-server-0.0.1-SNAPSHOT.jar
-java -jar config-server/target/config-server-0.0.1-SNAPSHOT.jar
-java -jar auth-service/target/auth-service-0.0.1-SNAPSHOT.jar
-java -jar rbac-service/target/rbac-service-0.0.1-SNAPSHOT.jar
-java -jar gateway-service/target/gateway-service-0.0.1-SNAPSHOT.jar
-```
+### Prerequisites
+- JDK 17
+- Maven 3.9+
+- (Docker / k3s optional, for containerized runs)
 
-> 启动即播种：auth 建 `admin/admin123`；rbac 建角色 `admin`/`user`/`viewer`（`viewer` 继承 `user`）、
-> 权限 `users:read|write` `roles:read|write` `permissions:read`，并把 `admin` 用户挂到 `admin` 角色。
-> H2 用 `ddl-auto=create`，每次启动都是干净种子状态。
-
-### 3. 端到端演示（全部走网关 :4100）
+### 1. Bare jar (local debugging)
 
 ```bash
-make demo
+make build        # mvn clean package -DskipTests  → five jars
+make start        # start all 5 in order, wait until ready
+make demo         # end-to-end demo through gateway :4100
 ```
 
-或手动（见脚本 `scripts/demo.sh`）：登录、建角色、注册 alice、授予 `viewer`、验证 alice 经继承得到 `roles:read`、建角色被 403、`/api/check` 判定、`无 token` 401。
+Startup seeds: `auth` creates `admin/admin123`; `rbac` creates roles `admin`/`user`/`viewer` (`viewer` inherits `user`), permissions `users:read|write` `roles:read|write` `permissions:read`, and grants `admin` → `admin` role. H2 uses `ddl-auto=create`, so every start is a clean seed state.
 
-## API 一览
+### 2. Docker Compose
 
-| 方法 | 路径 | 鉴权 | 说明 |
+```bash
+make docker-up      # build images + compose up -d --build
+make docker-demo    # wait for readiness, run demo through gateway :4100
+make docker-logs    # tail logs
+make docker-stop    # compose down (keeps volumes)
+```
+
+All service addresses are injected via `JAVA_TOOL_OPTIONS` (flat env vars cannot bind Map/bootstrap properties). See `DOCKER.md`.
+
+### 3. k3s (single-node / OrbStack)
+
+```bash
+orb start k8s                 # OrbStack: enable k3s (or: k3s server)
+make k3s-build                # build images (docker compose build; k3s sees them)
+make k3s-deploy               # kubectl apply -f k8s/spring-rbac.yaml (ns rbac-demo)
+make k3s-status               # kubectl -n rbac-demo get pods,svc
+make k3s-demo                 # port-forward 41000→4100, run demo
+```
+
+> If the k3s API server certificate has expired (`x509: certificate has expired`), recreate the cluster: `orb delete k8s && orb start k8s`. All three run modes coexist and share the same source — `application.yml` is never edited; everything is injected via env / `JAVA_TOOL_OPTIONS`.
+
+## API reference
+
+| Method | Path | Authz | Description |
 |---|---|---|---|
-| POST | `/api/register` | 公开 | 注册用户（密码 PBKDF2 哈希） |
-| POST | `/api/login` | 公开 | 登录，返回 JWT |
-| GET | `/api/me` | 需登录 | 返回当前用户名 |
-| GET | `/api/roles` | `roles:read` | 列出角色 |
-| POST | `/api/roles` | `roles:write` | 创建角色（可带 `parentId` 继承） |
-| GET/PUT | `/api/roles/{id}` | `roles:read` / `roles:write` | 获取/更新角色 |
-| GET | `/api/permissions` | `permissions:read` | 列出权限 |
-| POST | `/api/users/{username}/roles` | `users:write` | 给用户分配角色 |
-| GET | `/api/users/{username}/roles` | `users:read` | 查看用户角色 |
-| POST | `/api/roles/{id}/permissions` | `roles:write` | 给角色分配权限 |
-| GET | `/api/check?user=&permission=` | 需登录 | 判定用户是否有效拥有某权限 |
+| POST | `/api/register` | public | register user (PBKDF2 password hash) |
+| POST | `/api/login` | public | login, returns JWT |
+| GET | `/api/me` | login | current username |
+| GET | `/api/roles` | `roles:read` | list roles |
+| POST | `/api/roles` | `roles:write` | create role (optional `parentId` for inheritance) |
+| GET/PUT | `/api/roles/{id}` | `roles:read` / `roles:write` | get / update role |
+| GET | `/api/permissions` | `permissions:read` | list permissions |
+| POST | `/api/users/{username}/roles` | `users:write` | assign role to user |
+| GET | `/api/users/{username}/roles` | `users:read` | user's roles |
+| POST | `/api/roles/{id}/permissions` | `roles:write` | grant permission to role |
+| GET | `/api/check?user=&permission=` | login | whether user effectively has a permission |
 
-（所有路由都经网关；网关在转发前做 JWT 校验 + 边缘鉴权，无权限直接 403，请求不会到达下游。）
+All routes go through the gateway; the gateway validates JWT + does edge authorization before forwarding. No permission → 403, request never reaches downstream.
 
-## 设计要点
+## Design highlights
 
-- **Spring Cloud 全家桶**：
-  - **Eureka** 做服务注册与发现，网关通过 `lb://auth-service` / `lb://rbac-service` 按服务名路由，业务服务地址不再写死。
-  - **Config Server（native 后端）** 统一下发 `jwt-secret`、数据源等配置；各服务作为 Config Client 通过 `spring.config.import` 拉取。
-  - **Spring Cloud Gateway** 替代原手写 `RestTemplate` 转发，响应式（WebFlux）；JWT 校验与边缘鉴权写成 `GlobalFilter`（PEP），转发由框架按路由配置完成。
-- **零依赖 JWT（HS256）**：仅用 JDK `Mac`+`Base64` + Spring 自带的 jackson 实现，避免引入 jjwt 与 Spring Boot 自带 jackson 的版本冲突。结构完全符合 RFC 7519。
-- **密码哈希 PBKDF2WithHmacSHA256**（JDK 内置），输出 `salt:hash`，不依赖 spring-security。
-- **角色继承**：`roles.parent_id` 形成树；`resolveEffectivePermissions` 用 BFS 沿父链递归展开，得到用户全部有效权限。
-- **网关即 PEP**：`AuthGlobalFilter` 把 HTTP 方法与所需权限映射；需鉴权的路由委托 rbac `/api/check` 判定（网关=策略执行点 PEP，rbac=策略决策点 PDP）。
+- **Spring Cloud stack**: Eureka for discovery (`lb://auth-service`, `lb://rbac-service`); Config Server (native) pushes `jwt-secret` / datasource; Gateway replaces hand-written forwarding with reactive routing + `GlobalFilter` PEP.
+- **Zero-dependency JWT (HS256)**: implemented with JDK `Mac` + `Base64` + Jackson — avoids jjwt/Spring-Boot Jackson version conflicts. RFC 7519 compliant.
+- **Password hash PBKDF2WithHmacSHA256** (JDK built-in), stored as `salt:hash`, no spring-security.
+- **Role inheritance**: `roles.parent_id` tree; `resolveEffectivePermissions` expands via BFS along the parent chain.
+- **Gateway = PEP**: `AuthGlobalFilter` maps HTTP method → required permission; protected routes delegate to rbac `/api/check` (gateway=PEP, rbac=PDP).
 
-## 注意事项
+## Notes & security
 
-- **启动顺序**：必须先起 `eureka-server` 与 `config-server`，业务服务依赖它们（服务注册 + 配置拉取）。`make start` 已处理顺序。
-- **`server.port` 会被环境变量覆盖**：Spring Boot relaxed binding 会把 `SERVER_PORT`/`SERVER__PORT` 映射成 `server.port`。本机直接 `java -jar` 不受影响；沙箱环境若注入了 `SERVER__PORT`，`make` 已用 `env -u SERVER__PORT` 规避。
-- **密钥**：`app.jwt-secret` 当前是 demo 明文密钥，三服务共用同一把（经 Config Server 下发）。生产应改由各服务独立签名密钥，并经配置中心/密钥管理下发。
-- **数据库**：演示用 H2 文件库，每次启动 `ddl-auto=create` 重置为种子状态；生产请换 PostgreSQL/MySQL 并 `ddl-auto=validate`。
-- **Config Server 后端**：当前用 `native`（读 classpath 下的 `config-repo/`），无需 git。生产可改 `git` 后端接远程仓库实现配置版本管理。
+- **Start order**: eureka + config first (services depend on them). `make start` handles it.
+- **`server.port` override**: Spring relaxed binding maps `SERVER_PORT`/`SERVER__PORT` → `server.port`. `make` uses `env -u SERVER__PORT` to avoid sandbox interference.
+- **`jwt-secret`**: currently a demo plaintext key shared by three services via Config Server. **Do not use in production** — move to per-service keys from a secret manager.
+- **Database**: demo uses file H2, reset to seed each start (`ddl-auto=create`). Production: PostgreSQL/MySQL with `ddl-auto=validate`.
+- **Config backend**: `native` (reads `config-repo/`), no git needed. Production: switch to `git` backend for versioned config.
+
+## Further reading
+
+- `ARCHITECTURE.md` — architecture deep-dive, sequence diagrams, circuit-breaker & fail-closed, Eureka hardening, route-predicate pitfalls.
+- `DOCKER.md` — Docker Compose & k3s runbook, including troubleshooting (imagePullPolicy, missing CMD/CrashLoopBackOff, certificate expiry, JAVA_TOOL_OPTIONS injection).
