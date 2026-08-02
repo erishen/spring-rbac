@@ -104,7 +104,7 @@ make web-start / make web-stop / make web-restart    # control the frontend alon
 make web-start WEB_BACKEND=http://localhost:41000    # when the backend is behind the k3s port-forward
 ```
 
-Startup seeds: `auth` creates three login accounts — `admin/admin123` (full access, incl. `customers:create/update/delete/approve`), `user/user123` (`editor` role, can edit and request deletion (pending approval), incl. `customers:read/create/update/delete`), `viewer/viewer123` (read-only, `viewer` role, incl. `customers:read`). `rbac` creates roles `admin`/`editor`/`viewer` (three tiers, no inheritance), permissions `users:read|write` `roles:read|write` `permissions:read` `customers:read|create|update|delete|approve`, and grants `admin`→`admin`, `user`→`editor`, `viewer`→`viewer`. H2 uses `ddl-auto=create`, so every start is a clean seed state.
+Startup seeds: `auth` creates three login accounts — `admin/admin123` (full access, incl. `customers:create/update/delete/approve`), `user/user123` (`editor` role, can edit and request deletion (pending approval), incl. `customers:read/create/update/delete`), `viewer/viewer123` (read-only, `viewer` role, incl. `customers:read`). `rbac` creates roles `admin`/`editor`/`viewer` (three tiers, no inheritance), permissions `users:read|write` `roles:read|write` `permissions:read` `customers:read|create|update|delete|approve`, and grants `admin`→`admin`, `user`→`editor`, `viewer`→`viewer`. auth/rbac use `ddl-auto=create`, so every start is a clean seed state (audit/customer DBs use `update` to persist, see below).
 
 **Deletion goes through an approval flow (admin deletes directly):** an admin with `customers:approve` deletes a customer (`customers:delete`) **immediately** — no approval needed. Other roles (e.g. editor) clicking "申请删除 / request delete" create a pending approval request (`approvals` table); an admin approves it on the "审批 Approvals" page to perform the real deletion. The three tiers differ on deletion: viewer cannot touch / editor can request but not approve / admin can both delete directly and approve.
 
@@ -180,7 +180,7 @@ All routes go through the gateway; the gateway validates JWT + does edge authori
 - **Start order**: eureka + config first (services depend on them). `make start` handles it.
 - **`server.port` override**: Spring relaxed binding maps `SERVER_PORT`/`SERVER__PORT` → `server.port`. `make` uses `env -u SERVER__PORT` to avoid sandbox interference.
 - **`jwt-secret`**: currently a demo plaintext key shared by three services via Config Server. **Do not use in production** — move to per-service keys from a secret manager.
-- **Database**: demo uses file H2, reset to seed each start (`ddl-auto=create`). Production: PostgreSQL/MySQL with `ddl-auto=validate`.
+- **Database**: demo uses file H2. `audit-service` and `customer-service` use `ddl-auto=update` so audit logs and customer data **persist across restarts** (`make reset-db` clears them); `auth`/`rbac` still use `ddl-auto=create` (reset to seed each start). Production: PostgreSQL/MySQL with `ddl-auto=validate`.
 - **Config backend**: `native` (reads `config-repo/`), no git needed. Production: switch to `git` backend for versioned config.
 
 ## Further reading

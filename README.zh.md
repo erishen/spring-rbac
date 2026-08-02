@@ -103,7 +103,7 @@ make web-start / make web-stop / make web-restart    # 单独控制前端
 make web-start WEB_BACKEND=http://localhost:41000    # 后端在 k3s 端口转发上时
 ```
 
-启动即播种：`auth` 建三个登录账号——`admin/admin123`（全权，含 `customers:create/update/delete/approve`）、`user/user123`（`editor` 角色，可编辑、可申请删除(需审批)，含 `customers:read/create/update/delete`）、`viewer/viewer123`（只读，`viewer` 角色，含 `customers:read`）。`rbac` 建角色 `admin`/`editor`/`viewer`（三档，无继承）、权限 `users:read|write` `roles:read|write` `permissions:read` `customers:read|create|update|delete|approve`，并把 `admin`→`admin`、`user`→`editor`、`viewer`→`viewer` 绑定。H2 用 `ddl-auto=create`，每次启动都是干净种子状态。
+启动即播种：`auth` 建三个登录账号——`admin/admin123`（全权，含 `customers:create/update/delete/approve`）、`user/user123`（`editor` 角色，可编辑、可申请删除(需审批)，含 `customers:read/create/update/delete`）、`viewer/viewer123`（只读，`viewer` 角色，含 `customers:read`）。`rbac` 建角色 `admin`/`editor`/`viewer`（三档，无继承）、权限 `users:read|write` `roles:read|write` `permissions:read` `customers:read|create|update|delete|approve`，并把 `admin`→`admin`、`user`→`editor`、`viewer`→`viewer` 绑定。auth/rbac 用 `ddl-auto=create`，每次启动都是干净种子状态（审计/客户库用 update 持久化，见下）。
 
 **删除走审批流（管理员直删）**：拥有 `customers:approve` 的管理员点击删除（`customers:delete`）会**直接生效**，无需走审批；其余角色（如 editor）点击「申请删除」会生成待审批单（`approvals` 表），由管理员在「审批 Approvals」页通过后才真实删除。三档在删除上的差异：viewer 不能碰 / editor 可申请不可批 / admin 可直接删且可批。
 
@@ -174,7 +174,7 @@ make k3s-demo                 # 端口转发 41000→4100，跑 demo
 - **启动顺序**：必须先起 `eureka-server` 与 `config-server`，业务服务依赖它们（服务注册 + 配置拉取）。`make start` 已处理顺序。
 - **`server.port` 会被环境变量覆盖**：Spring Boot relaxed binding 会把 `SERVER_PORT`/`SERVER__PORT` 映射成 `server.port`。本机直接 `java -jar` 不受影响；`make` 已用 `env -u SERVER__PORT` 规避。
 - **密钥**：`app.jwt-secret` 当前是 demo 明文密钥，三服务共用同一把（经 Config Server 下发）。**禁止直接用于生产**——应改为各服务独立签名密钥，并经密钥管理下发。
-- **数据库**：演示用 H2 文件库，每次启动 `ddl-auto=create` 重置为种子状态；生产请换 PostgreSQL/MySQL 并 `ddl-auto=validate`。
+- **数据库**：演示用 H2 文件库。`audit-service` 与 `customer-service` 用 `ddl-auto=update`，审计日志与客户数据**跨重启持久化**（`make reset-db` 可清空重置）；`auth`/`rbac` 仍用 `ddl-auto=create`，每次启动重置为种子状态。生产请换 PostgreSQL/MySQL 并 `ddl-auto=validate`。
 - **Config Server 后端**：当前用 `native`（读 classpath 下的 `config-repo/`），无需 git。生产可改 `git` 后端接远程仓库实现配置版本管理。
 
 ## 延伸阅读
