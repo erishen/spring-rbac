@@ -69,7 +69,7 @@ echo "  admin 建客户 id=$C2"
 echo -n "  admin 直删 $C2 => "
 curl -s --noproxy 127.0.0.1,localhost -X DELETE "$B:$G/api/customers/$C2" -H "Authorization: Bearer $ADMIN_TOKEN"
 echo " (预期 deleted:true，无 approvalId)"
-TRACE=$(curl -s --noproxy 127.0.0.1,localhost -D - -o /dev/null -X DELETE "$B:$G/api/customers/$C2" -H "Authorization: Bearer $ADMIN_TOKEN" 2>/dev/null | tr -d '\r' | grep -im1 '^X-Trace-Id:' | awk '{print $2}')
+TRACE=$(curl -s --noproxy 127.0.0.1,localhost -D - -o /dev/null -X DELETE "$B:$G/api/customers/$C2" -H "Authorization: Bearer $ADMIN_TOKEN" 2>/dev/null | tr -d '\r' | grep -im1 '^X-Trace-Id:' | awk '{print $2}') || TRACE=""
 echo "  响应头 X-Trace-Id: ${TRACE:-（未取到，可忽略）}（用它在服务日志中 grep 可串联整条调用链）"
 
 echo
@@ -79,14 +79,20 @@ echo "  admin 查审计（最近 6 条）:"
 curl -s --noproxy 127.0.0.1,localhost "$B:$G/api/audit?size=6" -H "Authorization: Bearer $ADMIN_TOKEN" | python3 -c "
 import sys,json
 for a in json.load(sys.stdin)['content']:
-    print(f\"    [{a['createdAt'][11:19] if a['createdAt'] else '?'}] {a['actor']:<10} {a['action']:<22} {a['decision']:<5} {a['status'] or '':<4} trace={a['traceId']}\")"
+    print(f\"    [{a['createdAt'][11:19] if a['createdAt'] else '?'}] {a['actor']:<10} {a['action']:<22} {a['decision']:<5} {a['status'] or '':<4} trace={a.get('traceId')}\")"
 echo "  viewer 查审计       => HTTP $(code "$B:$G/api/audit" -H "Authorization: Bearer $VIEWER_TOKEN")  (预期 403，audit:read 仅 admin)"
 
 echo
 echo "== 9) 链路可追溯说明（traceId 贯穿）=="
-echo "  上一步的 X-Trace-Id（$TRACE）已落库在审计记录中，并随请求头贯穿到各业务服务；"
-echo "  各服务日志行带 [traceId] 前缀（MDC），排障时可执行："
-echo "      grep '${TRACE:-<某 traceId>}' logs/*.log"
+if [ -n "${TRACE:-}" ]; then
+  echo "  上一步的 X-Trace-Id（${TRACE}）已落库在审计记录中，并随请求头贯穿到各业务服务；"
+  echo "  各服务日志行带 [traceId] 前缀（MDC），排障时可执行："
+  echo "      grep '${TRACE}' logs/*.log"
+else
+  echo "  未从响应头取到 X-Trace-Id："
+  echo "  - 若当前运行的是旧构建的服务，请先 make restart（新版网关会对每个请求回写该头）后重试；"
+  echo "  - 该头仅影响本演示说明，不影响前面的功能演示结果。"
+fi
 echo "  即可把一次请求的网关裁决与下游业务处理串联起来。"
 
 echo
