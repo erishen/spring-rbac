@@ -88,10 +88,10 @@ The gateway's call to `rbac /api/check` is a synchronous cross-service call, so 
 ### 1. Bare jar (local debugging)
 
 ```bash
-make build        # mvn clean package -DskipTests  → five jars
-make start        # start all 5 backends in order + the web frontend on :3000, wait until ready
-make demo         # end-to-end demo through gateway :4100
-make status       # reachability of the 5 backends + frontend
+make build        # mvn clean package -DskipTests  → seven jars
+make start        # start all 7 backends in order + the web frontend on :3000, wait until ready
+make demo         # end-to-end demo via gateway :4100: role tiers × customers + delete approval flow + admin direct delete + cross-service audit + traceId chain
+make status       # reachability of the 7 backends + frontend
 make stop         # stop everything (frontend included)
 ```
 

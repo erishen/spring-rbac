@@ -87,10 +87,10 @@ spring-rbac/
 ### 1. 裸 jar（本地调试）
 
 ```bash
-make build        # mvn clean package -DskipTests → 六个 jar
-make start        # 后台启动五服务（顺序 eureka→config→auth/rbac/gateway）+ 前端 :3000，等待就绪
-make demo         # 端到端演示（全部走网关 :4100）
-make status       # 查看六个后端服务 + 前端可达性
+make build        # mvn clean package -DskipTests → 七个 jar
+make start        # 后台启动七服务（eureka→config→auth/rbac/customer/audit/gateway）+ 前端 :3000，等待就绪
+make demo         # 端到端演示（全部走网关 :4100）：三档角色 × 客户域 + 删除审批流 + admin 直删 + 跨服务审计 + traceId 链路
+make status       # 查看七个后端服务 + 前端可达性
 make stop         # 停止全部（含前端）
 ```
 
