@@ -105,8 +105,19 @@ public class AuthGlobalFilter implements GlobalFilter {
             case "roles" -> "GET".equals(method) ? "roles:read" : "roles:write";
             case "permissions" -> "permissions:read";
             case "users" -> "GET".equals(method) ? "users:read" : "users:write";
-            case "customers" -> "GET".equals(method) ? "customers:read" : "customers:write";
+            case "customers" -> mapCustomerPermission(method);
             default -> null; // me / check 仅需登录
+        };
+    }
+
+    /** customers 域按 HTTP 方法细分权限：建/改/删 各成一档，便于角色差异化授权。 */
+    private String mapCustomerPermission(String method) {
+        return switch (method) {
+            case "GET" -> "customers:read";
+            case "POST" -> "customers:create";
+            case "PUT" -> "customers:update";
+            case "DELETE" -> "customers:delete";
+            default -> null;
         };
     }
 

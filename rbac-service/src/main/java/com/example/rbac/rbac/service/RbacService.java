@@ -51,35 +51,46 @@ public class RbacService {
         Permission pRolesRead = savePerm("roles:read");
         Permission pRolesWrite = savePerm("roles:write");
         Permission pPermsRead = savePerm("permissions:read");
-        // CRM 业务域权限：客户只读 / 客户增删改
+        // CRM 业务域权限：拆成 读 / 建 / 改 / 删 四档，使不同角色能体现不同权限
         Permission pCustRead = savePerm("customers:read");
-        Permission pCustWrite = savePerm("customers:write");
+        Permission pCustCreate = savePerm("customers:create");
+        Permission pCustUpdate = savePerm("customers:update");
+        Permission pCustDelete = savePerm("customers:delete");
 
         Role admin = saveRole("admin", null);
-        Role user = saveRole("user", null);
-        Role viewer = saveRole("viewer", user.getId()); // viewer 继承 user
+        Role editor = saveRole("editor", null); // 可增改、不可删
+        Role viewer = saveRole("viewer", null);  // 纯只读
 
+        // admin：全权（含 CRM 增/改/删）
         assignPerm(admin, pUsersRead);
         assignPerm(admin, pUsersWrite);
         assignPerm(admin, pRolesRead);
         assignPerm(admin, pRolesWrite);
         assignPerm(admin, pPermsRead);
         assignPerm(admin, pCustRead);
-        assignPerm(admin, pCustWrite);
+        assignPerm(admin, pCustCreate);
+        assignPerm(admin, pCustUpdate);
+        assignPerm(admin, pCustDelete);
 
-        assignPerm(user, pUsersRead);
-        assignPerm(user, pRolesRead);
-        assignPerm(user, pPermsRead);
-        assignPerm(user, pCustRead); // user 仅能浏览客户，不能增删改（与 users/roles 一致，均为只读）
+        // editor：可浏览 + 增 + 改（不可删），并保留 RBAC 面板只读以便查看
+        assignPerm(editor, pUsersRead);
+        assignPerm(editor, pRolesRead);
+        assignPerm(editor, pPermsRead);
+        assignPerm(editor, pCustRead);
+        assignPerm(editor, pCustCreate);
+        assignPerm(editor, pCustUpdate);
 
+        // viewer：仅只读（含 CRM 只读）
         assignPerm(viewer, pUsersRead);
         assignPerm(viewer, pRolesRead);
+        assignPerm(viewer, pPermsRead);
+        assignPerm(viewer, pCustRead);
 
-        assignRole("admin", admin.getId()); // admin 用户 -> admin 角色（拥有全部权限，含 CRM 写）
-        assignRole("user", user.getId());    // user 用户 -> user 角色（只读，含 customers:read）
-        assignRole("viewer", viewer.getId()); // viewer 用户 -> viewer 角色（继承 user，只读）
+        assignRole("admin", admin.getId());   // admin 用户 -> admin 角色（全权）
+        assignRole("user", editor.getId());   // user 用户 -> editor 角色（可编辑不可删）
+        assignRole("viewer", viewer.getId()); // viewer 用户 -> viewer 角色（只读）
 
-        System.out.println("[rbac] seeded roles/permissions + inheritance (viewer -> user) + admin/user/viewer assignment + CRM perms");
+        System.out.println("[rbac] seeded 3-tier CRM roles: admin(全权)/editor(可增改不可删)/viewer(只读) + RBAC perms");
     }
 
     public List<RoleDto> listRoles() {

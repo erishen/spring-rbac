@@ -116,7 +116,7 @@ export default function RolesPanel({
       <div className="card">
         <h2>角色树（含继承）</h2>
         <p className="sub">
-          种子数据里 viewer 继承 user，user 继承链向上。下游角色自动拥有上游角色的权限。
+          种子数据为三档平铺角色（admin/editor/viewer，无继承）：editor 含 customers:read/create/update（可增改不可删），viewer 仅含 customers:read（只读），admin 含全部权限。
         </p>
         {err && <div className="err">{err}</div>}
         {msg && <div className="ok">{msg}</div>}

@@ -44,7 +44,7 @@ export default function CheckPanel({ token }: { token: string }) {
       <h2>鉴权判定（含继承）</h2>
       <p className="sub">
         调用 PDP 接口 GET /api/check?user=&amp;permission=，实时计算用户的有效权限（含角色继承）。
-        例如 alice 被授 viewer（继承 user），则 roles:read / users:read 应为允许，roles:write 应为拒绝。
+        例如 viewer 角色仅含 customers:read（只读），则 customers:read / roles:read / users:read 应为允许，customers:create/update/delete 应为拒绝。
       </p>
       {err && <div className="err">{err}</div>}
 

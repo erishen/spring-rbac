@@ -28,7 +28,10 @@ export default function CustomersPanel({
   can: (p: Permission) => boolean;
 }) {
   const canRead = can("customers:read");
-  const canWrite = can("customers:write");
+  const canCreate = can("customers:create");
+  const canEdit = can("customers:update");
+  const canDelete = can("customers:delete");
+  const canMutate = canCreate || canEdit || canDelete; // 任一写权限即显示动作列/编辑态
 
   const [q, setQ] = useState("");
   const [customers, setCustomers] = useState<CustomerDto[]>([]);
@@ -170,8 +173,9 @@ export default function CustomersPanel({
       <div className="card">
         <h2>客户管理（CRM）</h2>
         <p className="sub">
-          客户数据由独立的 customer-service 提供；所有接口经网关 PEP 鉴权，仅当当前账号拥有
-          <b> customers:read </b>（列表） / <b>customers:write</b>（增删改）才放行。
+          客户数据由独立的 customer-service 提供；所有接口经网关 PEP 鉴权，按角色细分权限：
+          <b>customers:read</b>（查看）/ <b>customers:create</b>（新建）/
+          <b>customers:update</b>（编辑）/ <b>customers:delete</b>（删除）由后端 RBAC 实时裁决。
         </p>
         {err && <div className="err">{err}</div>}
         {msg && <div className="ok">{msg}</div>}
@@ -190,7 +194,7 @@ export default function CustomersPanel({
               <button className="btn" type="submit">
                 搜索
               </button>
-              {canWrite && (
+              {canCreate && (
                 <button
                   className="btn btn-primary"
                   type="button"
@@ -213,7 +217,7 @@ export default function CustomersPanel({
               <th>邮箱</th>
               <th>阶段</th>
               <th>备注</th>
-              {canWrite && <th></th>}
+              {canMutate && <th></th>}
             </tr>
           </thead>
           <tbody>
@@ -231,25 +235,29 @@ export default function CustomersPanel({
                 <td className="notes-cell" title={c.notes ?? undefined}>
                   <div className="notes-trunc">{c.notes ?? "—"}</div>
                 </td>
-                {canWrite && (
+                {(canEdit || canDelete) && (
                   <td className="actions">
-                    <button className="btn" onClick={() => startEdit(c)}>
-                      编辑
-                    </button>
-                    <button
-                      className="btn btn-danger"
-                      style={{ marginLeft: 8 }}
-                      onClick={() => remove(c)}
-                    >
-                      删除
-                    </button>
+                    {canEdit && (
+                      <button className="btn" onClick={() => startEdit(c)}>
+                        编辑
+                      </button>
+                    )}
+                    {canDelete && (
+                      <button
+                        className="btn btn-danger"
+                        style={{ marginLeft: 8 }}
+                        onClick={() => remove(c)}
+                      >
+                        删除
+                      </button>
+                    )}
                   </td>
                 )}
               </tr>
             ))}
             {!err && customers.length === 0 && (
               <tr>
-                <td colSpan={canWrite ? 7 : 6} className="meta">
+                <td colSpan={canMutate ? 7 : 6} className="meta">
                   暂无客户
                 </td>
               </tr>
@@ -291,12 +299,16 @@ export default function CustomersPanel({
           </select>
         </div>
 
-        {!canWrite && (
-          <div className="noperm">当前账号无 customers:write，不能新建/编辑/删除客户（只读）。</div>
+        {!canMutate && (
+          <div className="noperm">
+            {canRead
+              ? "当前账号为只读（无 customers:create/update/delete），不能新建/编辑/删除客户。"
+              : "当前账号无 customers:read，不能查看客户。"}
+          </div>
         )}
       </div>
 
-      {canWrite && editing !== null && (
+      {canMutate && editing !== null && (
         <div className="card">
           <h2>{editing === "new" ? "新建客户" : "编辑客户"}</h2>
           <form onSubmit={submit}>

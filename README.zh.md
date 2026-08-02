@@ -34,7 +34,7 @@
 | gateway-service | 4100 | Spring Cloud Gateway：JWT 校验(PEP) + 边缘鉴权 + 服务发现路由 | 无 |
 | auth-service | 4101 | 用户注册/登录、JWT 签发与校验（Eureka/Config Client） | H2 `./data/auth` |
 | rbac-service | 4102 | 角色(含继承)/权限/授权关系、有效权限解析、权限判定（Eureka/Config Client） | H2 `./data/rbac` |
-| customer-service | 4103 | CRM 客户域（增删改查 + 检索）。鉴权委托给网关 PEP + RBAC PDP，经 `customers:read` / `customers:write` 控制 | H2 `./data/customer` |
+| customer-service | 4103 | CRM 客户域（增删改查 + 检索）。鉴权委托给网关 PEP + RBAC PDP，经 `customers:read` / `customers:create` / `customers:update` / `customers:delete` 四档控制 | H2 `./data/customer` |
 
 内部服务注册到 Eureka，互联网只能打到网关这一道门（PEP 模式）。
 
@@ -102,7 +102,7 @@ make web-start / make web-stop / make web-restart    # 单独控制前端
 make web-start WEB_BACKEND=http://localhost:41000    # 后端在 k3s 端口转发上时
 ```
 
-启动即播种：`auth` 建三个登录账号——`admin/admin123`（全权，含 `customers:write`）、`user/user123`（只读，`user` 角色，含 `customers:read`）、`viewer/viewer123`（只读，`viewer` 角色，继承 `user`）。`rbac` 建角色 `admin`/`user`/`viewer`（`viewer` 继承 `user`）、权限 `users:read|write` `roles:read|write` `permissions:read` `customers:read|write`，并把 `admin`→`admin`、`user`→`user`、`viewer`→`viewer` 绑定。H2 用 `ddl-auto=create`，每次启动都是干净种子状态。
+启动即播种：`auth` 建三个登录账号——`admin/admin123`（全权，含 `customers:create/update/delete`）、`user/user123`（可编辑不可删，`editor` 角色，含 `customers:read/create/update`）、`viewer/viewer123`（只读，`viewer` 角色，含 `customers:read`）。`rbac` 建角色 `admin`/`editor`/`viewer`（三档，无继承）、权限 `users:read|write` `roles:read|write` `permissions:read` `customers:read|create|update|delete`，并把 `admin`→`admin`、`user`→`editor`、`viewer`→`viewer` 绑定。H2 用 `ddl-auto=create`，每次启动都是干净种子状态。
 
 ### 2. Docker Compose
 
@@ -154,7 +154,7 @@ make k3s-demo                 # 端口转发 41000→4100，跑 demo
 - **零依赖 JWT（HS256）**：仅用 JDK `Mac`+`Base64` + Spring 自带的 jackson 实现，避免引入 jjwt 与 Spring Boot 自带 jackson 的版本冲突。结构完全符合 RFC 7519。
 - **密码哈希 PBKDF2WithHmacSHA256**（JDK 内置），输出 `salt:hash`，不依赖 spring-security。
 - **角色继承**：`roles.parent_id` 形成树；`resolveEffectivePermissions` 用 BFS 沿父链递归展开，得到用户全部有效权限。
-- **网关即 PEP**：`AuthGlobalFilter` 把 HTTP 方法与所需权限映射；需鉴权的路由委托 rbac `/api/check` 判定（网关=策略执行点 PEP，rbac=策略决策点 PDP）。
+- **网关即 PEP**：`AuthGlobalFilter` 把 HTTP 方法与所需权限映射（如 customers 域 GET→`customers:read`、POST→`customers:create`、PUT→`customers:update`、DELETE→`customers:delete`）；需鉴权的路由委托 rbac `/api/check` 判定（网关=策略执行点 PEP，rbac=策略决策点 PDP）。
 
 ## 注意事项
 

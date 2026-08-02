@@ -34,7 +34,7 @@ A **Spring Boot + Spring Cloud** implementation equivalent to the `rbac-service`
 | gateway-service | 4100 | Spring Cloud Gateway: JWT validation (PEP) + edge authorization + service-discovery routing | — |
 | auth-service | 4101 | User register/login, JWT issue & validation (Eureka/Config client) | H2 `./data/auth` |
 | rbac-service | 4102 | Roles (with inheritance) / permissions / grants, effective-permission resolution, permission check (Eureka/Config client) | H2 `./data/rbac` |
-| customer-service | 4103 | CRM customer domain (CRUD + search). Authorization delegated to the gateway PEP + RBAC PDP via `customers:read` / `customers:write` | H2 `./data/customer` |
+| customer-service | 4103 | CRM customer domain (CRUD + search). Authorization delegated to the gateway PEP + RBAC PDP via `customers:read` / `customers:create` / `customers:update` / `customers:delete` | H2 `./data/customer` |
 
 Internal services register with Eureka; only the gateway is exposed to the outside (PEP pattern).
 
@@ -103,7 +103,7 @@ make web-start / make web-stop / make web-restart    # control the frontend alon
 make web-start WEB_BACKEND=http://localhost:41000    # when the backend is behind the k3s port-forward
 ```
 
-Startup seeds: `auth` creates three login accounts — `admin/admin123` (full access, incl. `customers:write`), `user/user123` (read-only, `user` role, incl. `customers:read`), `viewer/viewer123` (read-only, `viewer` role which inherits `user`). `rbac` creates roles `admin`/`user`/`viewer` (`viewer` inherits `user`), permissions `users:read|write` `roles:read|write` `permissions:read` `customers:read|write`, and grants `admin`→`admin`, `user`→`user`, `viewer`→`viewer`. H2 uses `ddl-auto=create`, so every start is a clean seed state.
+Startup seeds: `auth` creates three login accounts — `admin/admin123` (full access, incl. `customers:create/update/delete`), `user/user123` (can edit but not delete, `editor` role, incl. `customers:read/create/update`), `viewer/viewer123` (read-only, `viewer` role, incl. `customers:read`). `rbac` creates roles `admin`/`editor`/`viewer` (three tiers, no inheritance), permissions `users:read|write` `roles:read|write` `permissions:read` `customers:read|create|update|delete`, and grants `admin`→`admin`, `user`→`editor`, `viewer`→`viewer`. H2 uses `ddl-auto=create`, so every start is a clean seed state.
 
 **CRM sample data from CSV (optional, local-only):** if the env var `CRM_SEED_CSV` points to an existing CSV file at `customer-service` startup, the customers table is seeded from that file instead of the 3 built-in samples (mapping: `name`←通讯录姓名/回退微信备注名, `phone`←手机号, `email`←邮箱, `status`←lead, `notes`←来源/微信ID/ID类型/归属地/运营商/匹配方式). Example:
 
