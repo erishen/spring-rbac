@@ -33,6 +33,10 @@ spring:
           uri: lb://rbac-service
           predicates:
             - Path=/api/check,/api/roles/**,/api/permissions/**,/api/users/**
+        - id: customer-api
+          uri: lb://customer-service
+          predicates:
+            - Path=/api/customers/**
 
 management:
   endpoints:

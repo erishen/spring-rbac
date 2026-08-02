@@ -68,6 +68,10 @@ docker compose down -v           # 连数据卷一起删（auth/rbac 的 H2 库�
 - **数据持久化**：`auth-service` / `rbac-service` 的 H2 文件库挂载到命名卷 `auth-data` / `rbac-data`，
   容器重启数据不丢；与裸跑的 `./data` 目录隔离，互不干扰。
 - **JVM 内存**：统一 `-Xmx256m`，与裸跑 Makefile 一致。
+- **Web 前端**：`web/` 是 Next.js 前端，compose 里作为 `web` 服务（端口 3000）一并构建启动，
+  `depends_on: gateway-service` 保证网关就绪后再起。前端经 `next.config.mjs` 的 rewrite 把同源 `/api/*`
+  代理到网关；容器网络内网关地址即 `gateway-service:4100`，该值在 `web/Dockerfile` 构建期烤进镜像、
+  也可用 `BACKEND_URL` 环境变量覆盖，**无需改动前端源码、也无需给网关加 CORS**（BFF 套路）。
 - **actuator**：仅 `gateway-service` 引了 `spring-boot-starter-actuator`（暴露 `circuitbreakers`）；
   其余服务健康检查用端口探测，未引入额外依赖。
 
@@ -114,6 +118,10 @@ make k3s-clean             # kubectl delete -f k8s/spring-rbac.yaml
 - **资源限制**：每个容器都设了 `resources`（主容器内存 `256Mi`/`384Mi`、CPU `100m`/`500m`；
   init 容器更小 `cpu: 50m/100m`），避免单 Pod 吃满节点、也满足 kube-score 等静态检查对 CPU limit 的要求。
   需调整直接改 `k8s/spring-rbac.yaml` 各容器 `resources` 段。
+- **Web 前端**：manifest 一并含 `web` 的 Deployment + ClusterIP Service（端口 3000）。
+  其 initContainer 等 `gateway-service:4100` 就绪再启动；容器内 `BACKEND_URL=http://gateway-service:4100`、
+  `PORT=3000`，`next start` 起服务。前端在容器网络内调网关、不暴露公网；
+  本地联调用 `make k3s-demo`（已把 `web` 也端口转发到本地 3000）。
 
 ### 排错（k3s）
 

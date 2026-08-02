@@ -19,6 +19,7 @@ import com.example.rbac.rbac.repository.RolePermissionRepository;
 import com.example.rbac.rbac.repository.RoleRepository;
 import com.example.rbac.rbac.repository.UserRoleRepository;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.util.*;
 
@@ -50,6 +51,9 @@ public class RbacService {
         Permission pRolesRead = savePerm("roles:read");
         Permission pRolesWrite = savePerm("roles:write");
         Permission pPermsRead = savePerm("permissions:read");
+        // CRM 业务域权限：客户只读 / 客户增删改
+        Permission pCustRead = savePerm("customers:read");
+        Permission pCustWrite = savePerm("customers:write");
 
         Role admin = saveRole("admin", null);
         Role user = saveRole("user", null);
@@ -60,17 +64,22 @@ public class RbacService {
         assignPerm(admin, pRolesRead);
         assignPerm(admin, pRolesWrite);
         assignPerm(admin, pPermsRead);
+        assignPerm(admin, pCustRead);
+        assignPerm(admin, pCustWrite);
 
         assignPerm(user, pUsersRead);
         assignPerm(user, pRolesRead);
         assignPerm(user, pPermsRead);
+        assignPerm(user, pCustRead); // user 仅能浏览客户，不能增删改（与 users/roles 一致，均为只读）
 
         assignPerm(viewer, pUsersRead);
         assignPerm(viewer, pRolesRead);
 
-        assignRole("admin", admin.getId()); // admin 用户 -> admin 角色（拥有全部权限）
+        assignRole("admin", admin.getId()); // admin 用户 -> admin 角色（拥有全部权限，含 CRM 写）
+        assignRole("user", user.getId());    // user 用户 -> user 角色（只读，含 customers:read）
+        assignRole("viewer", viewer.getId()); // viewer 用户 -> viewer 角色（继承 user，只读）
 
-        System.out.println("[rbac] seeded roles/permissions + inheritance (viewer -> user) + admin assignment");
+        System.out.println("[rbac] seeded roles/permissions + inheritance (viewer -> user) + admin/user/viewer assignment + CRM perms");
     }
 
     public List<RoleDto> listRoles() {
@@ -124,6 +133,17 @@ public class RbacService {
             throw new NotFoundException("role not found: " + roleId);
         }
         assignRole(username, roleId);
+    }
+
+    @Transactional
+    public void revokeRoleFromUser(String username, Long roleId) {
+        if (roleRepository.findById(roleId).isEmpty()) {
+            throw new NotFoundException("role not found: " + roleId);
+        }
+        if (!userRoleRepository.existsByUsernameAndRoleId(username, roleId)) {
+            throw new NotFoundException("user role not found: " + username + " / " + roleId);
+        }
+        userRoleRepository.deleteByUsernameAndRoleId(username, roleId);
     }
 
     public List<UserRoleView> getUserRoles(String username) {

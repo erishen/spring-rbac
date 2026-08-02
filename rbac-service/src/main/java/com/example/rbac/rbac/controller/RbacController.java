@@ -64,6 +64,12 @@ public class RbacController {
         return rbacService.getUserRoles(username);
     }
 
+    @DeleteMapping("/users/{username}/roles/{roleId}")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    public void revokeRoleFromUser(@PathVariable String username, @PathVariable Long roleId) {
+        rbacService.revokeRoleFromUser(username, roleId);
+    }
+
     @PostMapping("/roles/{id}/permissions")
     @ResponseStatus(HttpStatus.CREATED)
     public Map<String, Object> assignPermission(@PathVariable Long id,

@@ -11,15 +11,15 @@ A **Spring Boot + Spring Cloud** implementation equivalent to the `rbac-service`
    client ────► │  gateway-service :4100  (Spring Cloud Gateway / PEP)       │
                 │   • JWT validation (GlobalFilter)                          │
                 │   • Edge authz: calls rbac /api/check (lb://rbac-service)   │
-                │   • Route forwarding: lb://auth-service / lb://rbac-service │
-                └───────┬───────────────────────┬───────────────────────────┘
-                        │ via Eureka discovery     │
-                        ▼ (lb://auth-service)       ▼ (lb://rbac-service)
-                ┌──────────────────┐    ┌──────────────────┐
-                │ auth-service :4101│    │ rbac-service :4102│
-                │ users / JWT issue  │    │ roles(inherit)/perms/check│
-                │ H2: ./data/auth   │    │ H2: ./data/rbac   │
-                └──────────────────┘    └──────────────────┘
+                │   • Route forwarding: lb://auth-service / lb://rbac-service / lb://customer-service │
+                └───────┬───────────────────────┬───────────────────────┬──────────────────┘
+                        │ via Eureka discovery     │                       │
+                        ▼ (lb://auth-service)       ▼ (lb://rbac-service)   ▼ (lb://customer-service)
+                ┌──────────────────┐    ┌──────────────────┐    ┌──────────────────┐
+                │ auth-service :4101│    │ rbac-service :4102│    │ customer-service :4103│
+                │ users / JWT issue  │    │ roles(inherit)/perms/check│ │ CRM customers (RBAC-guarded)│
+                │ H2: ./data/auth   │    │ H2: ./data/rbac   │    │ H2: ./data/customer   │
+                └──────────────────┘    └──────────────────┘    └──────────────────┘
 
       ┌──────────────────┐      ┌──────────────────┐
       │ eureka-server :8761│      │ config-server :8888 │
@@ -34,6 +34,7 @@ A **Spring Boot + Spring Cloud** implementation equivalent to the `rbac-service`
 | gateway-service | 4100 | Spring Cloud Gateway: JWT validation (PEP) + edge authorization + service-discovery routing | — |
 | auth-service | 4101 | User register/login, JWT issue & validation (Eureka/Config client) | H2 `./data/auth` |
 | rbac-service | 4102 | Roles (with inheritance) / permissions / grants, effective-permission resolution, permission check (Eureka/Config client) | H2 `./data/rbac` |
+| customer-service | 4103 | CRM customer domain (CRUD + search). Authorization delegated to the gateway PEP + RBAC PDP via `customers:read` / `customers:write` | H2 `./data/customer` |
 
 Internal services register with Eureka; only the gateway is exposed to the outside (PEP pattern).
 
@@ -41,14 +42,15 @@ Internal services register with Eureka; only the gateway is exposed to the outsi
 
 ```
 spring-rbac/
-├── pom.xml                 # parent (packaging=pom, spring-cloud-dependencies BOM, 5 modules)
+├── pom.xml                 # parent (packaging=pom, spring-cloud-dependencies BOM, 6 modules)
 ├── eureka-server/          # service registry (@EnableEurekaServer)
 ├── config-server/          # config server (@EnableConfigServer, native backend)
-│   └── src/main/resources/config-repo/   # auth-service.yml / rbac-service.yml / gateway-service.yml
+│   └── src/main/resources/config-repo/   # auth-service.yml / rbac-service.yml / customer-service.yml / gateway-service.yml
 ├── auth-service/           # auth service (Eureka + Config client)
 ├── rbac-service/           # RBAC service (Eureka + Config client)
+├── customer-service/       # CRM customer service (Eureka + Config client); authz via gateway PEP + RBAC
 ├── gateway-service/        # Spring Cloud Gateway (WebFlux, PEP via GlobalFilter)
-├── k8s/spring-rbac.yaml    # k3s / Kubernetes manifests (5 Deployments + 5 Services)
+├── k8s/spring-rbac.yaml    # k3s / Kubernetes manifests (6 Deployments + 6 Services)
 ├── docker-compose.yml      # Docker Compose orchestration
 ├── scripts/demo.sh         # end-to-end demo
 ├── DOCKER.md               # Docker Compose & k3s runbook + troubleshooting
@@ -78,17 +80,40 @@ The gateway's call to `rbac /api/check` is a synchronous cross-service call, so 
 ### Prerequisites
 - JDK 17
 - Maven 3.9+
+- Node.js 20+ (for the `web/` frontend; optional — `make start` skips the frontend if npm is missing)
 - (Docker / k3s optional, for containerized runs)
 
 ### 1. Bare jar (local debugging)
 
 ```bash
 make build        # mvn clean package -DskipTests  → five jars
-make start        # start all 5 in order, wait until ready
+make start        # start all 5 backends in order + the web frontend on :3000, wait until ready
 make demo         # end-to-end demo through gateway :4100
+make status       # reachability of the 5 backends + frontend
+make stop         # stop everything (frontend included)
 ```
 
-Startup seeds: `auth` creates `admin/admin123`; `rbac` creates roles `admin`/`user`/`viewer` (`viewer` inherits `user`), permissions `users:read|write` `roles:read|write` `permissions:read`, and grants `admin` → `admin` role. H2 uses `ddl-auto=create`, so every start is a clean seed state.
+The frontend is Next.js (`web/`), started by `make start` as a background `next dev` (log `logs/web.log`, PID `.pids/web.pid`), served at <http://localhost:3000>.
+It follows the **BFF** pattern: the browser only calls same-origin `/api/*`, and Next rewrites those to the gateway on `:4100` — no CORS involved.
+If `:3000` is already taken (e.g. you run `npm run dev` yourself), `make start` detects it and skips instead of fighting for the port.
+
+```bash
+make start WITH_WEB=0                                # backends only
+make web-start / make web-stop / make web-restart    # control the frontend alone
+make web-start WEB_BACKEND=http://localhost:41000    # when the backend is behind the k3s port-forward
+```
+
+Startup seeds: `auth` creates three login accounts — `admin/admin123` (full access, incl. `customers:write`), `user/user123` (read-only, `user` role, incl. `customers:read`), `viewer/viewer123` (read-only, `viewer` role which inherits `user`). `rbac` creates roles `admin`/`user`/`viewer` (`viewer` inherits `user`), permissions `users:read|write` `roles:read|write` `permissions:read` `customers:read|write`, and grants `admin`→`admin`, `user`→`user`, `viewer`→`viewer`. H2 uses `ddl-auto=create`, so every start is a clean seed state.
+
+**CRM sample data from CSV (optional, local-only):** if the env var `CRM_SEED_CSV` points to an existing CSV file at `customer-service` startup, the customers table is seeded from that file instead of the 3 built-in samples (mapping: `name`←通讯录姓名/回退微信备注名, `phone`←手机号, `email`←邮箱, `status`←lead, `notes`←来源/微信ID/ID类型/归属地/运营商/匹配方式). Example:
+
+```bash
+CRM_SEED_CSV=/path/to/merged-contacts.csv make start
+```
+
+For a "set once, always on" local setup, put `CRM_SEED_CSV=/abs/path/to/merged-contacts.csv` in a repo-root `.env` (already gitignored). `make restart`/`make start` auto-reads it — no need to pass the env var each time.
+
+⚠️ The CSV may contain real PII (phone/email/name). Use it only for your **local** instance — never commit the CSV or the `./data` H2 file (already gitignored). The public demo keeps the 3 sample customers.
 
 ### 2. Docker Compose
 

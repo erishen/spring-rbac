@@ -23,6 +23,7 @@
         <module>config-server</module>
         <module>auth-service</module>
         <module>rbac-service</module>
+        <module>customer-service</module>
         <module>gateway-service</module>
     </modules>
 

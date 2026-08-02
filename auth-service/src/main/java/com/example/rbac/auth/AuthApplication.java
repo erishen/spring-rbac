@@ -24,6 +24,14 @@ public class AuthApplication {
                 authService.register("admin", "admin123");
                 System.out.println("[auth] seeded admin / admin123");
             }
+            if (userRepository.findByUsername("user").isEmpty()) {
+                authService.register("user", "user123");
+                System.out.println("[auth] seeded user / user123 (role: user, 只读)");
+            }
+            if (userRepository.findByUsername("viewer").isEmpty()) {
+                authService.register("viewer", "viewer123");
+                System.out.println("[auth] seeded viewer / viewer123 (role: viewer, 只读)");
+            }
         };
     }
 }

@@ -105,6 +105,7 @@ public class AuthGlobalFilter implements GlobalFilter {
             case "roles" -> "GET".equals(method) ? "roles:read" : "roles:write";
             case "permissions" -> "permissions:read";
             case "users" -> "GET".equals(method) ? "users:read" : "users:write";
+            case "customers" -> "GET".equals(method) ? "customers:read" : "customers:write";
             default -> null; // me / check 仅需登录
         };
     }

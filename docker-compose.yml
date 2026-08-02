@@ -84,6 +84,30 @@ services:
       start_period: 40s
     command: ["java", "-Xmx256m", "-jar", "/app/app.jar"]
 
+  customer-service:
+    build:
+      context: .
+      dockerfile: customer-service/Dockerfile
+    image: spring-rbac/customer-service:latest
+    ports:
+      - "4103:4103"
+    depends_on:
+      eureka-server:
+        condition: service_healthy
+      config-server:
+        condition: service_healthy
+    environment:
+      JAVA_TOOL_OPTIONS: "-Deureka.client.serviceUrl.defaultZone=http://eureka-server:8761/eureka -Deureka.instance.prefer-ip-address=true -Dspring.config.import=optional:configserver:http://config-server:8888"
+    volumes:
+      - customer-data:/app/data
+    healthcheck:
+      test: ["CMD", "bash", "-c", "exec 3<>/dev/tcp/127.0.0.1/4103"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+      start_period: 40s
+    command: ["java", "-Xmx256m", "-jar", "/app/app.jar"]
+
   gateway-service:
     build:
       context: .
@@ -98,6 +122,8 @@ services:
         condition: service_healthy
       rbac-service:
         condition: service_healthy
+      customer-service:
+        condition: service_healthy
     environment:
       JAVA_TOOL_OPTIONS: "-Deureka.client.serviceUrl.defaultZone=http://eureka-server:8761/eureka -Deureka.instance.prefer-ip-address=true -Dspring.config.import=optional:configserver:http://config-server:8888"
     healthcheck:
@@ -109,6 +135,30 @@ services:
     # 多睡 6s 缓冲 Eureka 注册表传播（服务端缓存 3s + 网关拉取 3s），避免首请求 503
     command: ["sh", "-c", "sleep 6 && exec java -Xmx256m -jar /app/app.jar"]
 
+  web:
+    build:
+      context: ./web
+      dockerfile: Dockerfile
+    image: spring-rbac/web:latest
+    ports:
+      - "3000:3000"
+    depends_on:
+      gateway-service:
+        condition: service_healthy
+    environment:
+      # 容器网络内网关即 gateway-service:4100；next.config.mjs 的 rewrite 目标在构建期烤进镜像，
+      # 运行期也可经此环境变量覆盖，无需改动前端源码。
+      BACKEND_URL: "http://gateway-service:4100"
+      PORT: "3000"
+      NODE_ENV: "production"
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O", "-", "http://127.0.0.1:3000/login"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+      start_period: 40s
+
 volumes:
   auth-data:
   rbac-data:
+  customer-data:

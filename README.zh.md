@@ -11,15 +11,15 @@
    客户端 ─────► │  gateway-service :4100  (Spring Cloud Gateway / PEP)       │
                 │   • 校验 JWT（GlobalFilter）                                 │
                 │   • 边缘鉴权：调 rbac /api/check（lb://rbac-service）         │
-                │   • 路由转发：lb://auth-service / lb://rbac-service           │
-                └───────┬───────────────────────┬───────────────────────────┘
-                        │ 经 Eureka 服务发现        │
-                        ▼ (lb://auth-service)       ▼ (lb://rbac-service)
-                ┌──────────────────┐    ┌──────────────────┐
-                │ auth-service :4101│    │ rbac-service :4102│
-                │ 用户 / JWT 签发    │    │ 角色(继承)/权限/判定 │
-                │ H2: ./data/auth   │    │ H2: ./data/rbac   │
-                └──────────────────┘    └──────────────────┘
+                │   • 路由转发：lb://auth-service / lb://rbac-service / lb://customer-service │
+                └───────┬───────────────────────┬───────────────────────┬──────────────────┘
+                        │ 经 Eureka 服务发现        │                       │
+                        ▼ (lb://auth-service)       ▼ (lb://rbac-service)   ▼ (lb://customer-service)
+                ┌──────────────────┐    ┌──────────────────┐    ┌──────────────────┐
+                │ auth-service :4101│    │ rbac-service :4102│    │ customer-service :4103│
+                │ 用户 / JWT 签发    │    │ 角色(继承)/权限/判定 │    │ CRM 客户(RBAC 守护)  │
+                │ H2: ./data/auth   │    │ H2: ./data/rbac   │    │ H2: ./data/customer   │
+                └──────────────────┘    └──────────────────┘    └──────────────────┘
 
       ┌──────────────────┐      ┌──────────────────┐
       │ eureka-server :8761│      │ config-server :8888 │
@@ -34,6 +34,7 @@
 | gateway-service | 4100 | Spring Cloud Gateway：JWT 校验(PEP) + 边缘鉴权 + 服务发现路由 | 无 |
 | auth-service | 4101 | 用户注册/登录、JWT 签发与校验（Eureka/Config Client） | H2 `./data/auth` |
 | rbac-service | 4102 | 角色(含继承)/权限/授权关系、有效权限解析、权限判定（Eureka/Config Client） | H2 `./data/rbac` |
+| customer-service | 4103 | CRM 客户域（增删改查 + 检索）。鉴权委托给网关 PEP + RBAC PDP，经 `customers:read` / `customers:write` 控制 | H2 `./data/customer` |
 
 内部服务注册到 Eureka，互联网只能打到网关这一道门（PEP 模式）。
 
@@ -41,7 +42,7 @@
 
 ```
 spring-rbac/
-├── pom.xml                 # 父工程（packaging=pom，含 spring-cloud-dependencies BOM，5 个模块）
+├── pom.xml                 # 父工程（packaging=pom，含 spring-cloud-dependencies BOM，6 个模块）
 ├── eureka-server/          # 服务注册中心（@EnableEurekaServer）
 ├── config-server/          # 配置中心（@EnableConfigServer，native 后端）
 │   └── src/main/resources/config-repo/   # auth-service.yml / rbac-service.yml / gateway-service.yml
@@ -78,17 +79,30 @@ spring-rbac/
 ### 前置条件
 - JDK 17
 - Maven 3.9+
+- Node.js 20+（前端 `web/`；未安装也能跑，`make start` 会自动跳过前端）
 - （Docker / k3s 为可选项，仅容器化运行需要）
 
 ### 1. 裸 jar（本地调试）
 
 ```bash
-make build        # mvn clean package -DskipTests → 五个 jar
-make start        # 后台启动五服务（顺序 eureka→config→auth/rbac/gateway），等待就绪
+make build        # mvn clean package -DskipTests → 六个 jar
+make start        # 后台启动五服务（顺序 eureka→config→auth/rbac/gateway）+ 前端 :3000，等待就绪
 make demo         # 端到端演示（全部走网关 :4100）
+make status       # 查看六个后端服务 + 前端可达性
+make stop         # 停止全部（含前端）
 ```
 
-启动即播种：`auth` 建 `admin/admin123`；`rbac` 建角色 `admin`/`user`/`viewer`（`viewer` 继承 `user`）、权限 `users:read|write` `roles:read|write` `permissions:read`，并把 `admin` 用户挂到 `admin` 角色。H2 用 `ddl-auto=create`，每次启动都是干净种子状态。
+前端是 Next.js（`web/`），由 `make start` 以 `next dev` 后台拉起（日志 `logs/web.log`，PID `.pids/web.pid`），页面在 <http://localhost:3000>。
+采用 **BFF** 模式：浏览器只请求同源 `/api/*`，Next 服务端 rewrite 到网关 `:4100`，因此没有浏览器跨域问题。
+若 `:3000` 已被占用（例如你自己开了 `npm run dev`），`make start` 会检测到并跳过，不会抢端口。
+
+```bash
+make start WITH_WEB=0                                # 只跑后端五服务
+make web-start / make web-stop / make web-restart    # 单独控制前端
+make web-start WEB_BACKEND=http://localhost:41000    # 后端在 k3s 端口转发上时
+```
+
+启动即播种：`auth` 建三个登录账号——`admin/admin123`（全权，含 `customers:write`）、`user/user123`（只读，`user` 角色，含 `customers:read`）、`viewer/viewer123`（只读，`viewer` 角色，继承 `user`）。`rbac` 建角色 `admin`/`user`/`viewer`（`viewer` 继承 `user`）、权限 `users:read|write` `roles:read|write` `permissions:read` `customers:read|write`，并把 `admin`→`admin`、`user`→`user`、`viewer`→`viewer` 绑定。H2 用 `ddl-auto=create`，每次启动都是干净种子状态。
 
 ### 2. Docker Compose
 
