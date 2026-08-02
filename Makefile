@@ -48,7 +48,7 @@ include .env
 export CRM_SEED_CSV
 endif
 
-.PHONY: help build compile start dev stop restart status demo reset-db clean web-install web-spawn web-wait web-start web-stop web-restart web-killport docker-build docker-up docker-start docker-stop docker-down docker-reset docker-logs docker-ps docker-demo k3s-build k3s-apply k3s-deploy k3s-status k3s-demo k3s-clean
+.PHONY: help build compile start dev stop restart status demo reset-db clean web-install web-spawn web-wait web-start web-stop web-restart web-killport docker-build docker-up docker-start docker-stop docker-down docker-reset docker-logs docker-ps docker-demo k3s-build k3s-ensure k3s-apply k3s-deploy k3s-status k3s-demo k3s-clean
 
 help: ## 显示本帮助
 	@echo "spring-rbac — RBAC 微服务系统（Spring Boot + Spring Cloud）可用命令："
@@ -294,19 +294,36 @@ docker-demo: docker-up ## 启动后经网关跑 RBAC 演示（等待容器就绪
 # ============================================================
 # k3s 部署（单节点 / OrbStack 友好）
 # 镜像沿用 docker compose build 的产物（OrbStack 下 k3s 可直接看到 docker 本地镜像）
-# 与裸 jar / compose 并存，互不干扰。实跑在你本机（需 orb start k8s 启用 k3s）。
+# 与裸 jar / compose 并存，互不干扰。make k3s-* 会自动 orb start k8s 并确保 apiserver 可达。
 # Web 前端一并部署（Deployment + ClusterIP Service），容器内经服务名 gateway-service:4100 调网关。
 # ============================================================
 k3s-build: docker-build ## 构建镜像到节点本地（docker compose build 产物，k3s 可见）
 
-k3s-apply k3s-deploy: ## 部署到 k3s（namespace rbac-demo）
+# 自动确保 OrbStack Kubernetes 已启用且 apiserver 可达（非 OrbStack 环境仅探测，不自动起）
+k3s-ensure:
+	@if command -v orb >/dev/null 2>&1; then \
+	  echo "确保 OrbStack Kubernetes 已启动..."; \
+	  orb start k8s >/dev/null 2>&1 || true; \
+	else \
+	  echo "未检测到 orb CLI，跳过自动启动（非 OrbStack 环境请自行确保集群可达）。"; \
+	fi
+	@echo "等待 k3s apiserver 可达..."
+	@for i in $$(seq 1 40); do \
+	  if kubectl cluster-info >/dev/null 2>&1; then echo "  k3s 可达 ✅"; break; fi; \
+	  sleep 3; \
+	  if [ $$i -eq 40 ]; then echo "  ⚠️ 超时：k3s apiserver 仍不可达（connection refused）。"; \
+	    echo "  → 请确认 OrbStack 已安装且 Kubernetes 已启用：orb start k8s"; \
+	    echo "  → 或手动起 k3s 后重跑。"; exit 1; fi; \
+	 done
+
+k3s-apply k3s-deploy: k3s-ensure ## 部署到 k3s（namespace rbac-demo）
 	@kubectl apply -f k8s/spring-rbac.yaml
 	@echo "已部署。查看状态: make k3s-status"
 
 k3s-status: ## 查看 k3s 下 Pod / Service 状态
 	@kubectl -n rbac-demo get pods,svc
 
-k3s-demo: ## 端口转发网关并跑 RBAC 演示（先确保 k3s 已起、已部署、Pod 就绪）
+k3s-demo: k3s-ensure ## 端口转发网关并跑 RBAC 演示（先确保 k3s 已起、已部署、Pod 就绪）
 	@echo "检查 k3s 是否可达..."
 	@if ! kubectl cluster-info >/dev/null 2>&1; then \
 	  echo "  ⚠️ kubectl 连不上 k3s API server（connection refused）。"; \
