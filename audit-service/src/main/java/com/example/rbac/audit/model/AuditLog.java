@@ -15,6 +15,10 @@ public class AuditLog {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
+    /** 轻量链路追踪 id：网关生成并透传的 X-Trace-Id，可串联同一请求的裁决与下游日志。 */
+    @Column(length = 32)
+    private String traceId;
+
     /** 操作人（网关从 JWT 解析并透传的 username）。 */
     @Column(nullable = false)
     private String actor;
@@ -61,6 +65,14 @@ public class AuditLog {
 
     public void setId(Long id) {
         this.id = id;
+    }
+
+    public String getTraceId() {
+        return traceId;
+    }
+
+    public void setTraceId(String traceId) {
+        this.traceId = traceId;
     }
 
     public String getActor() {

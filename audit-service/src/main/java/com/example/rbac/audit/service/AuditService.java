@@ -29,6 +29,7 @@ public class AuditService {
     @Transactional
     public void record(AuditEvent e) {
         AuditLog log = new AuditLog();
+        log.setTraceId(e.traceId);
         log.setActor(e.actor);
         log.setAction(e.action);
         log.setMethod(e.method);
@@ -44,6 +45,7 @@ public class AuditService {
     private AuditLogDto toDto(AuditLog a) {
         return new AuditLogDto(
                 a.getId(),
+                a.getTraceId(),
                 a.getActor(),
                 a.getAction(),
                 a.getMethod(),

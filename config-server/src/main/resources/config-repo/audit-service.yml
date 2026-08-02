@@ -8,3 +8,8 @@ spring:
     hibernate:
       ddl-auto: update
     open-in-view: false
+
+# 日志行带上 MDC traceId（由 TraceIdFilter 写入），可用同一 traceId grep 串联整条调用链
+logging:
+  pattern:
+    level: "%5p [%X{traceId:-}]"

@@ -167,6 +167,7 @@ export default function AuditPanel({
               <th>动作</th>
               <th>资源</th>
               <th>结果</th>
+              <th>链路</th>
               <th>路径</th>
             </tr>
           </thead>
@@ -185,6 +186,9 @@ export default function AuditPanel({
                   >
                     {DECISION_LABELS[a.decision] ?? a.decision}
                   </span>
+                </td>
+                <td className="trace-id" title={`链路 ${a.traceId ?? ""}：用该 ID 在服务日志中 grep 串联整条调用链`}>
+                  {a.traceId ?? "—"}
                 </td>
                 <td>{a.path}</td>
               </tr>

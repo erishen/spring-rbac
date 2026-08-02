@@ -21,6 +21,7 @@ import reactor.core.publisher.Mono;
 
 import java.nio.charset.StandardCharsets;
 import java.util.Map;
+import java.util.UUID;
 
 /**
  * API 网关（PEP 策略执行点，Spring Cloud Gateway GlobalFilter 实现）：
@@ -28,7 +29,9 @@ import java.util.Map;
  *  2. 按路由表做边缘鉴权：调用 RBAC /api/check 判定权限，无权限直接 403；
  *  3. 通过鉴权后交还给 Gateway，由其按 lb:// 路由转发到 auth / rbac / customer 内部服务；
  *  4. 在 PEP 裁决后【异步、best-effort】发射审计事件到 audit-service，
- *     以网关为唯一发射点实现跨服务审计（fail-open：审计服务不可用不影响业务）。
+ *     以网关为唯一发射点实现跨服务审计（fail-open：审计服务不可用不影响业务）；
+ *  5. 轻量链路追踪：生成/透传 X-Trace-Id（响应头 + 下游请求头 + 审计事件），
+ *     可用同一 traceId 把一次请求的网关裁决与下游业务日志串联起来。
  * 内部服务只注册在 Eureka，互联网只能打到网关这一道门。
  */
 @Component
@@ -40,6 +43,9 @@ public class AuthGlobalFilter implements GlobalFilter {
     /** 网关内部直连审计服务的私有头，audit-service 据此拒绝外部伪造写入。 */
     private static final String AUDIT_HEADER = "X-Internal-Audit";
     private static final String AUDIT_HEADER_VALUE = "gateway";
+
+    /** 轻量链路追踪头：网关生成并透传到下游业务服务，同时回写响应头供客户端查看。 */
+    private static final String TRACE_HEADER = "X-Trace-Id";
 
     private final JwtUtil jwtUtil;
     private final WebClient lbWebClient;
@@ -59,41 +65,48 @@ public class AuthGlobalFilter implements GlobalFilter {
         String path = exchange.getRequest().getURI().getPath();
         String method = exchange.getRequest().getMethod().name();
 
+        // 轻量链路追踪：取请求头或生成 8 位 traceId，回写响应头 + 透传下游
+        String traceId = resolveTraceId(exchange);
+        exchange.getResponse().getHeaders().set(TRACE_HEADER, traceId);
+        ServerWebExchange traced = exchange.mutate().request(
+                exchange.getRequest().mutate().header(TRACE_HEADER, traceId).build()
+        ).build();
+
         // 公开路由：登录/注册/健康检查，直接放行（不审计未认证流量）
         if (path.equals("/api/login") || path.equals("/api/register")
                 || path.equals("/health") || path.startsWith("/actuator")) {
-            return chain.filter(exchange);
+            return chain.filter(traced);
         }
         // 非 /api/** 也放行（避免误拦静态资源等）
         if (!path.startsWith("/api/")) {
-            return chain.filter(exchange);
+            return chain.filter(traced);
         }
 
         // 1) 认证：校验 JWT，拿到 username
         String auth = exchange.getRequest().getHeaders().getFirst("Authorization");
         if (auth == null || !auth.startsWith("Bearer ")) {
-            emitAudit(null, "auth:missing", method, path, extractResourceId(path), "DENY", 401);
+            emitAudit(traceId, null, "auth:missing", method, path, extractResourceId(path), "DENY", 401);
             return unauthorized(exchange, "missing bearer token");
         }
         String username;
         try {
             username = jwtUtil.verify(auth.substring(7));
         } catch (JwtException e) {
-            emitAudit(null, "auth:invalid", method, path, extractResourceId(path), "DENY", 401);
+            emitAudit(traceId, null, "auth:invalid", method, path, extractResourceId(path), "DENY", 401);
             return unauthorized(exchange, e.getMessage());
         }
 
         // 身份注入：把当前用户名透传给下游服务（审批单记录申请人、审计留痕等）
-        ServerWebExchange authed = exchange.mutate().request(
-                exchange.getRequest().mutate().header("X-User", username).build()
+        ServerWebExchange authed = traced.mutate().request(
+                traced.getRequest().mutate().header("X-User", username).build()
         ).build();
 
         // 2) 边缘鉴权（PEP）：仅对需要特定权限的路由委托 rbac 判定
         String required = mapPermission(path, method);
         Long resourceId = extractResourceId(path);
         if (required == null) {
-            // 已登录即可访问（/api/me, /api/check, /api/audit 等）：记审计后放行
-            emitAudit(username, method + " " + path, method, path, resourceId, "ALLOW", null);
+            // 已登录即可访问（/api/me, /api/check 等）：记审计后放行
+            emitAudit(traceId, username, method + " " + path, method, path, resourceId, "ALLOW", null);
             return chain.filter(authed);
         }
 
@@ -106,18 +119,27 @@ public class AuthGlobalFilter implements GlobalFilter {
                 .flatMap(resp -> {
                     boolean allowed = Boolean.TRUE.equals(resp.get("allowed"));
                     if (allowed) {
-                        emitAudit(username, required, method, path, resourceId, "ALLOW", null);
+                        emitAudit(traceId, username, required, method, path, resourceId, "ALLOW", null);
                         return chain.filter(authed);
                     }
-                    emitAudit(username, required, method, path, resourceId, "DENY", 403);
+                    emitAudit(traceId, username, required, method, path, resourceId, "DENY", 403);
                     return forbidden(exchange, "forbidden: requires " + required);
                 })
                 .onErrorResume(e -> {
-                    emitAudit(username, required, method, path, resourceId, "DENY", 403);
+                    emitAudit(traceId, username, required, method, path, resourceId, "DENY", 403);
                     return forbidden(exchange,
                             "forbidden: pdp degraded (circuit " + pdpCircuitBreaker.getState()
                                     + "): " + e.getClass().getSimpleName());
                 });
+    }
+
+    /** 读取请求头中的 traceId，无则生成 8 位 hex（保持与下游 TraceIdFilter 一致的短格式）。 */
+    private String resolveTraceId(ServerWebExchange exchange) {
+        String id = exchange.getRequest().getHeaders().getFirst(TRACE_HEADER);
+        if (id == null || id.isBlank()) {
+            id = UUID.randomUUID().toString().replace("-", "").substring(0, 8);
+        }
+        return id;
     }
 
     /** 把 HTTP 路径 + 方法映射到所需权限（与 RBAC 的 /api/check 约定一致）。 */
@@ -167,10 +189,11 @@ public class AuthGlobalFilter implements GlobalFilter {
      * 异步、best-effort 发射审计事件到 audit-service（fail-open）。
      * 仅做 fire-and-forget，不阻塞主链路；审计服务不可用只记本地日志，不影响业务响应。
      */
-    private void emitAudit(String actor, String action, String method, String path,
+    private void emitAudit(String traceId, String actor, String action, String method, String path,
                            Long resourceId, String decision, Integer status) {
         try {
             Map<String, Object> body = new java.util.HashMap<>();
+            body.put("traceId", traceId);
             body.put("actor", actor == null ? "anonymous" : actor);
             body.put("action", action);
             body.put("method", method);

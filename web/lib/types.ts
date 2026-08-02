@@ -91,6 +91,7 @@ export interface DeleteResult {
 /** 审计日志条目（网关 PEP 裁决后统一发射，跨服务覆盖）。 */
 export interface AuditLogDto {
   id: number;
+  traceId: string | null;
   actor: string;
   action: string;
   method: string;

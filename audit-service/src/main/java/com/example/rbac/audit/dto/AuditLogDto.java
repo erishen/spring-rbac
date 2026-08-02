@@ -4,6 +4,7 @@ package com.example.rbac.audit.dto;
 public class AuditLogDto {
 
     public final Long id;
+    public final String traceId;
     public final String actor;
     public final String action;
     public final String method;
@@ -14,10 +15,11 @@ public class AuditLogDto {
     public final String detail;
     public final String createdAt;
 
-    public AuditLogDto(Long id, String actor, String action, String method,
+    public AuditLogDto(Long id, String traceId, String actor, String action, String method,
                        String path, Long resourceId, String decision,
                        Integer status, String detail, String createdAt) {
         this.id = id;
+        this.traceId = traceId;
         this.actor = actor;
         this.action = action;
         this.method = method;

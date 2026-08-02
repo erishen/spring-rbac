@@ -514,13 +514,20 @@ button.link {
 .approvals-table > thead > tr > th:nth-child(6) { width: 12%; }
 .approvals-table > thead > tr > th:nth-child(7) { width: 172px; }
 
-/* 审计表专用列宽（6 列，按时间倒序） */
-.audit-table > thead > tr > th:nth-child(1) { width: 20%; }
-.audit-table > thead > tr > th:nth-child(2) { width: 14%; }
-.audit-table > thead > tr > th:nth-child(3) { width: 18%; }
-.audit-table > thead > tr > th:nth-child(4) { width: 10%; }
-.audit-table > thead > tr > th:nth-child(5) { width: 10%; }
-.audit-table > thead > tr > th:nth-child(6) { width: 28%; }
+/* 审计表专用列宽（7 列：时间/操作人/动作/资源/结果/链路/路径，按时间倒序） */
+.audit-table > thead > tr > th:nth-child(1) { width: 17%; }
+.audit-table > thead > tr > th:nth-child(2) { width: 12%; }
+.audit-table > thead > tr > th:nth-child(3) { width: 15%; }
+.audit-table > thead > tr > th:nth-child(4) { width: 8%; }
+.audit-table > thead > tr > th:nth-child(5) { width: 8%; }
+.audit-table > thead > tr > th:nth-child(6) { width: 12%; }
+.audit-table > thead > tr > th:nth-child(7) { width: 28%; }
+/* 链路 ID：等宽小字，鼠标悬停可复制整条 traceId */
+.audit-table td.trace-id {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 12px;
+  color: var(--muted);
+}
 
 /* 详情弹窗 */
 .modal-backdrop {
