@@ -3,8 +3,10 @@ package com.example.rbac.customer.service;
 import com.example.rbac.customer.dto.CustomerDtos.CreateCustomerRequest;
 import com.example.rbac.customer.dto.CustomerDtos.UpdateCustomerRequest;
 import com.example.rbac.customer.exception.NotFoundException;
+import com.example.rbac.customer.model.ApprovalRequest;
 import com.example.rbac.customer.model.Customer;
 import com.example.rbac.customer.repository.CustomerRepository;
+import com.example.rbac.customer.service.ApprovalService;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
@@ -21,9 +23,11 @@ import java.util.List;
 public class CustomerService {
 
     private final CustomerRepository repository;
+    private final ApprovalService approvalService;
 
-    public CustomerService(CustomerRepository repository) {
+    public CustomerService(CustomerRepository repository, ApprovalService approvalService) {
         this.repository = repository;
+        this.approvalService = approvalService;
     }
 
     /** 列表 / 检索（分页）：q 为空返回全部，否则按 姓名/公司/电话/邮箱 模糊匹配。 */
@@ -68,11 +72,9 @@ public class CustomerService {
     }
 
     @Transactional
-    public void delete(Long id) {
-        if (!repository.existsById(id)) {
-            throw new NotFoundException("customer not found: " + id);
-        }
-        repository.deleteById(id);
+    public ApprovalRequest delete(Long id, String actor) {
+        // 不再直接物理删除：转为提交「删除审批」，由审批人(admin)通过后才真实删除
+        return approvalService.requestDelete(id, actor);
     }
 
     /**

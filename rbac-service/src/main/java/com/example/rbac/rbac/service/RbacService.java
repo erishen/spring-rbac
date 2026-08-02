@@ -55,10 +55,11 @@ public class RbacService {
         Permission pCustRead = savePerm("customers:read");
         Permission pCustCreate = savePerm("customers:create");
         Permission pCustUpdate = savePerm("customers:update");
-        Permission pCustDelete = savePerm("customers:delete");
+        Permission pCustDelete = savePerm("customers:delete");     // 语义=可发起删除申请
+        Permission pCustApprove = savePerm("customers:approve");   // 审批删除申请（仅 admin）
 
         Role admin = saveRole("admin", null);
-        Role editor = saveRole("editor", null); // 可增改、不可删
+        Role editor = saveRole("editor", null); // 可增改、可申请删除(需 admin 审批)
         Role viewer = saveRole("viewer", null);  // 纯只读
 
         // admin：全权（含 CRM 增/改/删）
@@ -71,14 +72,16 @@ public class RbacService {
         assignPerm(admin, pCustCreate);
         assignPerm(admin, pCustUpdate);
         assignPerm(admin, pCustDelete);
+        assignPerm(admin, pCustApprove);
 
-        // editor：可浏览 + 增 + 改（不可删），并保留 RBAC 面板只读以便查看
+        // editor：可浏览 + 增 + 改 + 发起删除申请（删除需 admin 审批才生效），保留 RBAC 面板只读
         assignPerm(editor, pUsersRead);
         assignPerm(editor, pRolesRead);
         assignPerm(editor, pPermsRead);
         assignPerm(editor, pCustRead);
         assignPerm(editor, pCustCreate);
         assignPerm(editor, pCustUpdate);
+        assignPerm(editor, pCustDelete);
 
         // viewer：仅只读（含 CRM 只读）
         assignPerm(viewer, pUsersRead);
@@ -90,7 +93,7 @@ public class RbacService {
         assignRole("user", editor.getId());   // user 用户 -> editor 角色（可编辑不可删）
         assignRole("viewer", viewer.getId()); // viewer 用户 -> viewer 角色（只读）
 
-        System.out.println("[rbac] seeded 3-tier CRM roles: admin(全权)/editor(可增改不可删)/viewer(只读) + RBAC perms");
+        System.out.println("[rbac] seeded 3-tier CRM roles: admin(全权+审批)/editor(可增改+可申请删除)/viewer(只读) + RBAC perms");
     }
 
     public List<RoleDto> listRoles() {

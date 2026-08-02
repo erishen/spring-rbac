@@ -147,15 +147,15 @@ export default function CustomersPanel({
   }
 
   async function remove(c: CustomerDto) {
-    if (!confirm(`确认删除客户「${c.name}」？`)) return;
+    if (!confirm(`确认提交「${c.name}」的删除申请？\n删除需管理员审批通过后才会生效。`)) return;
     setErr("");
     setMsg("");
     try {
       await deleteCustomer(token, c.id);
-      setMsg(`已删除客户「${c.name}」`);
+      setMsg(`已提交「${c.name}」的删除申请，待管理员审批通过后生效`);
       await refresh(page, size, appliedQ);
     } catch (e) {
-      setErr(e instanceof ApiError ? `删除失败：${e.message}` : "删除失败");
+      setErr(e instanceof ApiError ? `删除申请提交失败：${e.message}` : "删除申请提交失败");
     }
   }
 
@@ -175,7 +175,8 @@ export default function CustomersPanel({
         <p className="sub">
           客户数据由独立的 customer-service 提供；所有接口经网关 PEP 鉴权，按角色细分权限：
           <b>customers:read</b>（查看）/ <b>customers:create</b>（新建）/
-          <b>customers:update</b>（编辑）/ <b>customers:delete</b>（删除）由后端 RBAC 实时裁决。
+          <b>customers:update</b>（编辑）/ <b>customers:delete</b>（申请删除）由后端 RBAC 实时裁决。
+          删除客户会进入审批流，需管理员在「审批」页通过后才真正删除。
         </p>
         {err && <div className="err">{err}</div>}
         {msg && <div className="ok">{msg}</div>}
@@ -248,7 +249,7 @@ export default function CustomersPanel({
                         style={{ marginLeft: 8 }}
                         onClick={() => remove(c)}
                       >
-                        删除
+                        申请删除
                       </button>
                     )}
                   </td>

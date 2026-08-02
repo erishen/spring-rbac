@@ -71,10 +71,15 @@ public class AuthGlobalFilter implements GlobalFilter {
             return unauthorized(exchange, e.getMessage());
         }
 
+        // 身份注入：把当前用户名透传给下游服务（审批单记录申请人、审计留痕等）
+        ServerWebExchange authed = exchange.mutate().request(
+                exchange.getRequest().mutate().header("X-User", username).build()
+        ).build();
+
         // 2) 边缘鉴权（PEP）：仅对需要特定权限的路由委托 rbac 判定
         String required = mapPermission(path, method);
         if (required == null) {
-            return chain.filter(exchange); // 已登录即可（/api/me, /api/check）
+            return chain.filter(authed); // 已登录即可（/api/me, /api/check）
         }
 
         return lbWebClient.get()
@@ -86,7 +91,7 @@ public class AuthGlobalFilter implements GlobalFilter {
                 .flatMap(resp -> {
                     boolean allowed = Boolean.TRUE.equals(resp.get("allowed"));
                     if (allowed) {
-                        return chain.filter(exchange);
+                        return chain.filter(authed);
                     }
                     return forbidden(exchange, "forbidden: requires " + required);
                 })
@@ -106,6 +111,7 @@ public class AuthGlobalFilter implements GlobalFilter {
             case "permissions" -> "permissions:read";
             case "users" -> "GET".equals(method) ? "users:read" : "users:write";
             case "customers" -> mapCustomerPermission(method);
+            case "approvals" -> "customers:approve"; // 审批端点：仅审批人可访问
             default -> null; // me / check 仅需登录
         };
     }

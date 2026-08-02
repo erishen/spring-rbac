@@ -2,6 +2,7 @@ package com.example.rbac.customer.controller;
 
 import com.example.rbac.customer.dto.CustomerDtos.CreateCustomerRequest;
 import com.example.rbac.customer.dto.CustomerDtos.UpdateCustomerRequest;
+import com.example.rbac.customer.model.ApprovalRequest;
 import com.example.rbac.customer.model.Customer;
 import com.example.rbac.customer.service.CustomerService;
 import org.springframework.data.domain.Page;
@@ -43,8 +44,10 @@ public class CustomerController {
     }
 
     @DeleteMapping("/customers/{id}")
-    @ResponseStatus(HttpStatus.NO_CONTENT)
-    public void delete(@PathVariable Long id) {
-        customerService.delete(id);
+    @ResponseStatus(HttpStatus.ACCEPTED)
+    public ApprovalRequest delete(
+            @PathVariable Long id,
+            @RequestHeader(value = "X-User", required = false) String actor) {
+        return customerService.delete(id, actor);
     }
 }

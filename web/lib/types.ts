@@ -68,3 +68,17 @@ export interface UpdateCustomerRequest {
   status?: string;
   notes?: string;
 }
+
+/** 审批请求（删除客户等需审批的操作）。 */
+export interface ApprovalDto {
+  id: number;
+  type: string;
+  targetId: number;
+  targetName: string | null;
+  applicant: string;
+  status: string;
+  createdAt: string | null;
+  decidedAt: string | null;
+  approver: string | null;
+  decisionNote: string | null;
+}

@@ -1,4 +1,5 @@
 import type {
+  ApprovalDto,
   CheckResponse,
   CreateCustomerRequest,
   CustomerDto,
@@ -111,4 +112,19 @@ export const createCustomer = (token: string, body: CreateCustomerRequest) =>
 export const updateCustomer = (token: string, id: number, body: UpdateCustomerRequest) =>
   api<CustomerDto>(`/api/customers/${id}`, { method: "PUT", token, body });
 export const deleteCustomer = (token: string, id: number) =>
-  api<void>(`/api/customers/${id}`, { method: "DELETE", token });
+  api<ApprovalDto>(`/api/customers/${id}`, { method: "DELETE", token });
+
+// ---- 审批流（删除客户等需审批的操作）----
+export const listApprovals = (token: string, status?: string) =>
+  api<ApprovalDto[]>(
+    `/api/approvals${status ? `?status=${encodeURIComponent(status)}` : ""}`,
+    { token },
+  );
+export const approveApproval = (token: string, id: number) =>
+  api<ApprovalDto>(`/api/approvals/${id}/approve`, { method: "POST", token });
+export const rejectApproval = (token: string, id: number, note?: string) =>
+  api<ApprovalDto>(`/api/approvals/${id}/reject`, {
+    method: "POST",
+    token,
+    body: note ? { note } : {},
+  });
