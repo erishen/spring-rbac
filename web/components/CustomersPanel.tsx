@@ -248,7 +248,7 @@ export default function CustomersPanel({
                     {canDelete && (
                       <button
                         className="btn btn-danger"
-                        style={{ marginLeft: 8 }}
+                        style={{ marginLeft: 6 }}
                         onClick={() => remove(c)}
                       >
                         {canApprove ? "删除" : "申请删除"}

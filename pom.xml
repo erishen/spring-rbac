@@ -25,6 +25,7 @@
         <module>rbac-service</module>
         <module>customer-service</module>
         <module>gateway-service</module>
+        <module>audit-service</module>
     </modules>
 
     <properties>

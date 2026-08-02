@@ -12,6 +12,7 @@ export const ALL_PERMISSIONS = [
   "customers:update",
   "customers:delete",
   "customers:approve",
+  "audit:read",
 ] as const;
 
 export type Permission = (typeof ALL_PERMISSIONS)[number];
@@ -28,6 +29,7 @@ export const PERMISSION_LABELS: Record<Permission, string> = {
   "customers:update": "编辑客户",
   "customers:delete": "申请删除客户",
   "customers:approve": "审批客户删除",
+  "audit:read": "查看审计日志",
 };
 
 /**

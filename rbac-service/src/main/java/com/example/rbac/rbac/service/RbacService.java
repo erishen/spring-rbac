@@ -57,6 +57,7 @@ public class RbacService {
         Permission pCustUpdate = savePerm("customers:update");
         Permission pCustDelete = savePerm("customers:delete");     // 语义=可发起删除申请
         Permission pCustApprove = savePerm("customers:approve");   // 审批删除申请（仅 admin）
+        Permission pAuditRead = savePerm("audit:read");            // 查看跨服务审计日志（仅 admin）
 
         Role admin = saveRole("admin", null);
         Role editor = saveRole("editor", null); // 可增改、可申请删除(需 admin 审批)
@@ -73,6 +74,7 @@ public class RbacService {
         assignPerm(admin, pCustUpdate);
         assignPerm(admin, pCustDelete);
         assignPerm(admin, pCustApprove);
+        assignPerm(admin, pAuditRead);
 
         // editor：可浏览 + 增 + 改 + 发起删除申请（删除需 admin 审批才生效），保留 RBAC 面板只读
         assignPerm(editor, pUsersRead);

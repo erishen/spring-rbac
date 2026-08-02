@@ -108,6 +108,30 @@ services:
       start_period: 40s
     command: ["java", "-Xmx256m", "-jar", "/app/app.jar"]
 
+  audit-service:
+    build:
+      context: .
+      dockerfile: audit-service/Dockerfile
+    image: spring-rbac/audit-service:latest
+    ports:
+      - "4104:4104"
+    depends_on:
+      eureka-server:
+        condition: service_healthy
+      config-server:
+        condition: service_healthy
+    environment:
+      JAVA_TOOL_OPTIONS: "-Deureka.client.serviceUrl.defaultZone=http://eureka-server:8761/eureka -Deureka.instance.prefer-ip-address=true -Dspring.config.import=optional:configserver:http://config-server:8888"
+    volumes:
+      - audit-data:/app/data
+    healthcheck:
+      test: ["CMD", "bash", "-c", "exec 3<>/dev/tcp/127.0.0.1/4104"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+      start_period: 40s
+    command: ["java", "-Xmx256m", "-jar", "/app/app.jar"]
+
   gateway-service:
     build:
       context: .
@@ -123,6 +147,8 @@ services:
       rbac-service:
         condition: service_healthy
       customer-service:
+        condition: service_healthy
+      audit-service:
         condition: service_healthy
     environment:
       JAVA_TOOL_OPTIONS: "-Deureka.client.serviceUrl.defaultZone=http://eureka-server:8761/eureka -Deureka.instance.prefer-ip-address=true -Dspring.config.import=optional:configserver:http://config-server:8888"
@@ -162,3 +188,4 @@ volumes:
   auth-data:
   rbac-data:
   customer-data:
+  audit-data:

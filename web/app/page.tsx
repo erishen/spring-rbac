@@ -11,8 +11,9 @@ import UsersPanel from "@/components/UsersPanel";
 import CheckPanel from "@/components/CheckPanel";
 import CustomersPanel from "@/components/CustomersPanel";
 import ApprovalsPanel from "@/components/ApprovalsPanel";
+import AuditPanel from "@/components/AuditPanel";
 
-type Tab = "roles" | "permissions" | "users" | "check" | "customers" | "approvals";
+type Tab = "roles" | "permissions" | "users" | "check" | "customers" | "approvals" | "audit";
 
 const TABS: { key: Tab; label: string; readPerm?: Permission }[] = [
   { key: "roles", label: "角色 Roles", readPerm: "roles:read" },
@@ -20,6 +21,7 @@ const TABS: { key: Tab; label: string; readPerm?: Permission }[] = [
   { key: "users", label: "用户 Users", readPerm: "users:read" },
   { key: "customers", label: "客户 Customers", readPerm: "customers:read" },
   { key: "approvals", label: "审批 Approvals", readPerm: "customers:approve" },
+  { key: "audit", label: "审计 Audit", readPerm: "audit:read" },
   { key: "check", label: "鉴权判定 Check" },
 ];
 
@@ -61,6 +63,7 @@ export default function Dashboard() {
         {tab === "users" && <UsersPanel token={token} can={can} />}
         {tab === "customers" && <CustomersPanel token={token} can={can} />}
         {tab === "approvals" && <ApprovalsPanel token={token} can={can} />}
+        {tab === "audit" && <AuditPanel token={token} can={can} />}
         {tab === "check" && <CheckPanel token={token} />}
       </main>
     </div>

@@ -213,7 +213,7 @@ button.ghost {
 .cust-table > thead > tr > th:nth-child(4) { width: 18%; }
 .cust-table > thead > tr > th:nth-child(5) { width: 9%; }
 .cust-table > thead > tr > th:nth-child(6) { width: 23%; }
-.cust-table > thead > tr > th:nth-child(7) { width: 112px; }
+.cust-table > thead > tr > th:nth-child(7) { width: 150px; }
 .cust-table th,
 .cust-table td {
   text-align: left;
@@ -242,7 +242,7 @@ button.ghost {
 }
 /* 表格内操作按钮缩小一档，避免撑出列宽 */
 .cust-table tbody td.actions .btn {
-  padding: 5px 10px;
+  padding: 5px 9px;
   font-size: 12px;
 }
 .cust-table td.notes-cell {
@@ -298,6 +298,11 @@ button.ghost {
   background: var(--ok-bg);
   color: var(--ok);
   border-color: #b2f2bb;
+}
+.status-deny {
+  background: #fff0f0;
+  color: #c92a2a;
+  border-color: #ffc9c9;
 }
 button.link {
   border: none;
@@ -491,4 +496,164 @@ button.link {
 .lock {
   font-size: 11px;
   opacity: 0.7;
+}
+
+/* 审批表专用：关闭 ellipsis 并按审批字段重设列宽，避免时间戳等被截断成 "..." */
+.approvals-table tbody td,
+.audit-table tbody td {
+  white-space: normal;
+  overflow: visible;
+  text-overflow: clip;
+  word-break: break-word;
+}
+.approvals-table > thead > tr > th:nth-child(1) { width: 8%; }
+.approvals-table > thead > tr > th:nth-child(2) { width: 14%; }
+.approvals-table > thead > tr > th:nth-child(3) { width: 16%; }
+.approvals-table > thead > tr > th:nth-child(4) { width: 13%; }
+.approvals-table > thead > tr > th:nth-child(5) { width: 18%; }
+.approvals-table > thead > tr > th:nth-child(6) { width: 12%; }
+.approvals-table > thead > tr > th:nth-child(7) { width: 172px; }
+
+/* 审计表专用列宽（6 列，按时间倒序） */
+.audit-table > thead > tr > th:nth-child(1) { width: 20%; }
+.audit-table > thead > tr > th:nth-child(2) { width: 14%; }
+.audit-table > thead > tr > th:nth-child(3) { width: 18%; }
+.audit-table > thead > tr > th:nth-child(4) { width: 10%; }
+.audit-table > thead > tr > th:nth-child(5) { width: 10%; }
+.audit-table > thead > tr > th:nth-child(6) { width: 28%; }
+
+/* 详情弹窗 */
+.modal-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(15, 23, 42, 0.45);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 50;
+  padding: 20px;
+}
+.modal {
+  background: var(--panel);
+  color: var(--text);
+  border-radius: 14px;
+  border: 1px solid var(--line);
+  width: 100%;
+  max-width: 460px;
+  max-height: 86vh;
+  overflow: auto;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.25);
+}
+.modal-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 18px;
+  border-bottom: 1px solid var(--line);
+}
+.modal-head h3 {
+  margin: 0;
+  font-size: 16px;
+}
+.modal-body {
+  padding: 16px 18px;
+}
+.detail-row {
+  display: flex;
+  gap: 12px;
+  padding: 8px 0;
+  border-bottom: 1px dashed var(--line);
+  font-size: 13px;
+}
+.detail-row:last-child {
+  border-bottom: none;
+}
+.detail-row .k {
+  flex: 0 0 84px;
+  color: var(--muted);
+}
+.detail-row .v {
+  flex: 1;
+  word-break: break-word;
+  white-space: pre-wrap;
+}
+.modal-foot {
+  padding: 12px 18px 16px;
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}
+/* 审计面板顶部工具条：左总条数、右每页大小选择 */
+.audit-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 12px;
+  flex-wrap: wrap;
+}
+/* 顶部统计卡：让审计从「能查」升级到「能监控」 */
+.stat-cards {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 12px;
+  margin-bottom: 14px;
+}
+.stat-card {
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  padding: 14px 16px;
+}
+.stat-card.stat-warn {
+  border-color: #ffc9c9;
+  background: #fff5f5;
+}
+.stat-card.stat-ok {
+  border-color: #b2f2bb;
+  background: #ebfbee;
+}
+.stat-num {
+  font-size: 26px;
+  font-weight: 700;
+  line-height: 1.1;
+}
+.stat-warn .stat-num {
+  color: #e03131;
+}
+.stat-ok .stat-num {
+  color: #2f9e44;
+}
+.stat-label {
+  margin-top: 4px;
+  font-size: 13px;
+  color: var(--muted);
+}
+.audit-filters {
+  display: inline-flex;
+  align-items: center;
+  gap: 14px;
+}
+.filter-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  color: var(--text);
+  cursor: pointer;
+}
+.audit-size {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  color: var(--muted);
+}
+.audit-size select {
+  width: auto;
+  padding: 4px 8px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--panel);
+  color: var(--text);
 }

@@ -24,6 +24,7 @@ CONFIG_JAR := config-server/target/config-server-0.0.1-SNAPSHOT.jar
 AUTH_JAR   := auth-service/target/auth-service-0.0.1-SNAPSHOT.jar
 RBAC_JAR   := rbac-service/target/rbac-service-0.0.1-SNAPSHOT.jar
 CUST_JAR   := customer-service/target/customer-service-0.0.1-SNAPSHOT.jar
+AUDIT_JAR  := audit-service/target/audit-service-0.0.1-SNAPSHOT.jar
 GW_JAR     := gateway-service/target/gateway-service-0.0.1-SNAPSHOT.jar
 
 LOG_DIR := logs
@@ -53,7 +54,7 @@ endif
 help: ## 显示本帮助
 	@echo "spring-rbac — RBAC 微服务系统（Spring Boot + Spring Cloud）可用命令："
 	@echo ""
-	@echo "  make build     编译打包，生成六个可执行 jar（mvn clean package -DskipTests）"
+	@echo "  make build     编译打包，生成七个可执行 jar（mvn clean package -DskipTests）"
 	@echo "  make compile   仅编译（不打包）"
 	@echo "  make start     后台启动六服务（eureka→config→auth/rbac/customer/gateway）+ 前端 :3000，等待就绪"
 	@echo "  make dev       重新编译并后台启动（改码后用）"
@@ -95,8 +96,8 @@ build: ## 编译打包，生成六个可执行 jar
 compile: ## 仅编译（不打包）
 	$(MVN) -q compile
 
-start: ## 后台启动六服务，等待就绪
-	@if [ ! -f $(EUREKA_JAR) ] || [ ! -f $(CONFIG_JAR) ] || [ ! -f $(AUTH_JAR) ] || [ ! -f $(RBAC_JAR) ] || [ ! -f $(CUST_JAR) ] || [ ! -f $(GW_JAR) ]; then echo "jar 缺失，先编译..."; $(SUBMAKE) build; fi
+start: ## 后台启动七服务，等待就绪
+	@if [ ! -f $(EUREKA_JAR) ] || [ ! -f $(CONFIG_JAR) ] || [ ! -f $(AUTH_JAR) ] || [ ! -f $(RBAC_JAR) ] || [ ! -f $(CUST_JAR) ] || [ ! -f $(AUDIT_JAR) ] || [ ! -f $(GW_JAR) ]; then echo "jar 缺失，先编译..."; $(SUBMAKE) build; fi
 	@mkdir -p $(LOG_DIR) $(PID_DIR)
 	@env -u SERVER__PORT -u SERVER_PORT nohup $(JAVA) $(JAVA_OPTS) -jar $(EUREKA_JAR) > $(LOG_DIR)/eureka.log 2>&1 & echo $$! > $(PID_DIR)/eureka.pid
 	@echo "  启动 eureka-server     (8761)，PID $$(cat $(PID_DIR)/eureka.pid)"
@@ -116,6 +117,8 @@ start: ## 后台启动六服务，等待就绪
 	@echo "  启动 rbac-service      (4102)，PID $$(cat $(PID_DIR)/rbac.pid)"
 	@env -u SERVER__PORT -u SERVER_PORT nohup $(JAVA) $(JAVA_OPTS) -jar $(CUST_JAR) > $(LOG_DIR)/customer.log 2>&1 & echo $$! > $(PID_DIR)/customer.pid
 	@echo "  启动 customer-service  (4103)，PID $$(cat $(PID_DIR)/customer.pid)"
+	@env -u SERVER__PORT -u SERVER_PORT nohup $(JAVA) $(JAVA_OPTS) -jar $(AUDIT_JAR) > $(LOG_DIR)/audit.log 2>&1 & echo $$! > $(PID_DIR)/audit.pid
+	@echo "  启动 audit-service     (4104)，PID $$(cat $(PID_DIR)/audit.pid)"
 	@env -u SERVER__PORT -u SERVER_PORT nohup $(JAVA) $(JAVA_OPTS) -jar $(GW_JAR) > $(LOG_DIR)/gateway.log 2>&1 & echo $$! > $(PID_DIR)/gateway.pid
 	@echo "  启动 gateway-service   (4100)，PID $$(cat $(PID_DIR)/gateway.pid)"
 	@echo "等待业务服务就绪..."
@@ -138,7 +141,7 @@ dev: ## 重新编译并后台启动（改码后用）
 
 stop: ## 停止全部后台服务（含前端）
 	@echo "停止服务..."
-	@for s in eureka config auth rbac customer gateway; do \
+	@for s in eureka config auth rbac customer audit gateway; do \
 	   if [ -f $(PID_DIR)/$$s.pid ]; then kill $$(cat $(PID_DIR)/$$s.pid) 2>/dev/null || true; rm -f $(PID_DIR)/$$s.pid; fi; \
 	 done
 	@pkill -f "eureka-server-0.0.1-SNAPSHOT.jar" 2>/dev/null || true
@@ -146,6 +149,7 @@ stop: ## 停止全部后台服务（含前端）
 	@pkill -f "auth-service-0.0.1-SNAPSHOT.jar" 2>/dev/null || true
 	@pkill -f "rbac-service-0.0.1-SNAPSHOT.jar" 2>/dev/null || true
 	@pkill -f "customer-service-0.0.1-SNAPSHOT.jar" 2>/dev/null || true
+	@pkill -f "audit-service-0.0.1-SNAPSHOT.jar" 2>/dev/null || true
 	@pkill -f "gateway-service-0.0.1-SNAPSHOT.jar" 2>/dev/null || true
 	@if [ "$(WITH_WEB)" = "1" ]; then $(SUBMAKE) --no-print-directory web-stop; fi
 	@echo "已停止。"

@@ -87,3 +87,33 @@ export interface DeleteResult {
   deleted: boolean;
   approvalId: number | null;
 }
+
+/** 审计日志条目（网关 PEP 裁决后统一发射，跨服务覆盖）。 */
+export interface AuditLogDto {
+  id: number;
+  actor: string;
+  action: string;
+  method: string;
+  path: string;
+  resourceId: number | null;
+  decision: string;
+  status: number | null;
+  detail: string | null;
+  createdAt: string | null;
+}
+
+/** 审计日志分页响应。 */
+export interface AuditPage {
+  content: AuditLogDto[];
+  total: number;
+  page: number;
+  size: number;
+  totalPages: number;
+}
+
+/** 审计今日概览（统计卡）。 */
+export interface AuditStats {
+  todayTotal: number;
+  todayDeny: number;
+  todayActiveUsers: number;
+}

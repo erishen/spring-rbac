@@ -37,6 +37,13 @@ spring:
           uri: lb://customer-service
           predicates:
             - Path=/api/customers/**,/api/approvals/**
+        - id: audit-api
+          uri: lb://audit-service
+          predicates:
+            # 仅放行 GET：审计写入由网关内部经服务发现直连 audit-service（带私有头），
+            # 外部无法经网关伪造写入；读取需 audit:read（PEP 在 AuthGlobalFilter 裁决）。
+            - Path=/api/audit
+            - Method=GET
 
 management:
   endpoints:

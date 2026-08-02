@@ -11,14 +11,14 @@
    客户端 ─────► │  gateway-service :4100  (Spring Cloud Gateway / PEP)       │
                 │   • 校验 JWT（GlobalFilter）                                 │
                 │   • 边缘鉴权：调 rbac /api/check（lb://rbac-service）         │
-                │   • 路由转发：lb://auth-service / lb://rbac-service / lb://customer-service │
-                └───────┬───────────────────────┬───────────────────────┬──────────────────┘
-                        │ 经 Eureka 服务发现        │                       │
-                        ▼ (lb://auth-service)       ▼ (lb://rbac-service)   ▼ (lb://customer-service)
-                ┌──────────────────┐    ┌──────────────────┐    ┌──────────────────┐
-                │ auth-service :4101│    │ rbac-service :4102│    │ customer-service :4103│
-                │ 用户 / JWT 签发    │    │ 角色(继承)/权限/判定 │    │ CRM 客户(RBAC 守护)  │
-                │ H2: ./data/auth   │    │ H2: ./data/rbac   │    │ H2: ./data/customer   │
+                │   • 路由转发：lb://auth-service / lb://rbac-service / lb://customer-service / lb://audit-service │
+                └───────┬───────────────────────┬───────────────────────┬──────────────────┬──────────────────┘
+                        │ 经 Eureka 服务发现        │                       │                  │
+                        ▼ (lb://auth-service)       ▼ (lb://rbac-service)   ▼ (lb://customer-service)  ▼ (lb://audit-service)
+                ┌──────────────────┐    ┌──────────────────┐    ┌──────────────────┐    ┌──────────────────┐
+                │ auth-service :4101│    │ rbac-service :4102│    │ customer-service :4103│    │ audit-service :4104│
+                │ 用户 / JWT 签发    │    │ 角色(继承)/权限/判定 │    │ CRM 客户(RBAC 守护)  │    │ 跨服务审计(append-only)│
+                │ H2: ./data/auth   │    │ H2: ./data/rbac   │    │ H2: ./data/customer   │    │ H2: ./data/audit   │
                 └──────────────────┘    └──────────────────┘    └──────────────────┘
 
       ┌──────────────────┐      ┌──────────────────┐
@@ -35,6 +35,7 @@
 | auth-service | 4101 | 用户注册/登录、JWT 签发与校验（Eureka/Config Client） | H2 `./data/auth` |
 | rbac-service | 4102 | 角色(含继承)/权限/授权关系、有效权限解析、权限判定（Eureka/Config Client） | H2 `./data/rbac` |
 | customer-service | 4103 | CRM 客户域（增删改查 + 检索）。鉴权委托给网关 PEP + RBAC PDP，经 `customers:read` / `customers:create` / `customers:update` / `customers:delete` 四档控制 | H2 `./data/customer` |
+| audit-service | 4104 | 跨服务审计日志（append-only）。网关在 PEP 裁决后**异步 best-effort** 统一发射审计事件，本服务只落库与供 `audit:read`（仅管理员）查询；写入仅允许网关经服务发现直连（带私有头），对外路由仅放行 GET | H2 `./data/audit` |
 
 内部服务注册到 Eureka，互联网只能打到网关这一道门（PEP 模式）。
 
@@ -106,6 +107,8 @@ make web-start WEB_BACKEND=http://localhost:41000    # 后端在 k3s 端口转�
 
 **删除走审批流（管理员直删）**：拥有 `customers:approve` 的管理员点击删除（`customers:delete`）会**直接生效**，无需走审批；其余角色（如 editor）点击「申请删除」会生成待审批单（`approvals` 表），由管理员在「审批 Approvals」页通过后才真实删除。三档在删除上的差异：viewer 不能碰 / editor 可申请不可批 / admin 可直接删且可批。
 
+**跨服务审计日志**：网关是唯一的审计发射点——每次 PEP 裁决后（放行或拒绝）都**异步、best-effort** 向 `audit-service` 发一条事件（操作人、动作/权限点、资源 id、结果、路径），**fail-open**：审计服务不可用不影响业务响应。因所有经网关的请求都过 PEP，审计天然覆盖 auth / rbac / customer / approvals 多服务（含 admin 直删、登录后的读写），而不需要在各业务服务里散落审计代码。审计写入仅允许网关经服务发现（`lb://audit-service`）直连并带私有头，对外网关路由 `/api/audit` 仅放行 GET 且需 `audit:read`（仅管理员），外部无法伪造日志。前端「审计 Audit」页按时间倒序展示最近 200 条。
+
 ### 2. Docker Compose
 
 ```bash
@@ -151,6 +154,7 @@ make k3s-demo                 # 端口转发 41000→4100，跑 demo
 | GET | `/api/approvals` | `customers:approve` | 列出审批单（默认 PENDING，可传 `?status=`） |
 | POST | `/api/approvals/{id}/approve` | `customers:approve` | 通过审批并执行真实删除 |
 | POST | `/api/approvals/{id}/reject` | `customers:approve` | 驳回审批（可选 `note`） |
+| GET | `/api/audit` | `audit:read` | 查询最近审计记录（默认 200 条，可传 `?limit=`），仅管理员 |
 
 （所有路由都经网关；网关在转发前做 JWT 校验 + 边缘鉴权，无权限直接 403，请求不会到达下游。）
 

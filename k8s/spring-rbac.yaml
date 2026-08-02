@@ -363,6 +363,84 @@ spec:
 apiVersion: apps/v1
 kind: Deployment
 metadata:
+  name: audit-service
+  namespace: rbac-demo
+  labels:
+    app: audit-service
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: audit-service
+  template:
+    metadata:
+      labels:
+        app: audit-service
+    spec:
+      initContainers:
+        - name: wait-config
+          image: busybox:1.36
+          resources:
+            requests:
+              cpu: "50m"
+            limits:
+              cpu: "100m"
+          command:
+            - sh
+            - -c
+            - until nc -z config-server 8888; do echo "waiting for config-server"; sleep 2; done
+      containers:
+        - name: audit-service
+          image: spring-rbac/audit-service:latest
+          imagePullPolicy: IfNotPresent
+          command: ["java", "-Xmx256m", "-jar", "app.jar"]
+          ports:
+            - containerPort: 4104
+          env:
+            # 说明：eureka.client.serviceUrl 是 Map 类型，扁平 env 变量无法可靠绑定，
+            # 故用 JVM 系统属性（最高优先级）经 JAVA_TOOL_OPTIONS 注入。
+            - name: JAVA_TOOL_OPTIONS
+              value: "-Deureka.client.serviceUrl.defaultZone=http://eureka-server:8761/eureka -Deureka.instance.prefer-ip-address=true -Dspring.config.import=optional:configserver:http://config-server:8888"
+          readinessProbe:
+            tcpSocket:
+              port: 4104
+            initialDelaySeconds: 15
+            periodSeconds: 5
+          livenessProbe:
+            tcpSocket:
+              port: 4104
+            initialDelaySeconds: 30
+            periodSeconds: 10
+          resources:
+            requests:
+              cpu: "100m"
+              memory: "256Mi"
+            limits:
+              cpu: "500m"
+              memory: "384Mi"
+          volumeMounts:
+            - name: data
+              mountPath: /app/data
+      volumes:
+        - name: data
+          emptyDir: {}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: audit-service
+  namespace: rbac-demo
+spec:
+  selector:
+    app: audit-service
+  ports:
+    - port: 4104
+      targetPort: 4104
+  type: ClusterIP
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
   name: gateway-service
   namespace: rbac-demo
   labels:
@@ -388,7 +466,7 @@ spec:
           command:
             - sh
             - -c
-            - until nc -z config-server 8888 && nc -z auth-service 4101 && nc -z rbac-service 4102 && nc -z customer-service 4103; do echo "waiting for config/auth/rbac/customer"; sleep 2; done
+            - until nc -z config-server 8888 && nc -z auth-service 4101 && nc -z rbac-service 4102 && nc -z customer-service 4103 && nc -z audit-service 4104; do echo "waiting for config/auth/rbac/customer/audit"; sleep 2; done
       containers:
         - name: gateway-service
           image: spring-rbac/gateway-service:latest

@@ -1,5 +1,8 @@
 import type {
   ApprovalDto,
+  AuditLogDto,
+  AuditPage,
+  AuditStats,
   CheckResponse,
   DeleteResult,
   CreateCustomerRequest,
@@ -129,3 +132,19 @@ export const rejectApproval = (token: string, id: number, note?: string) =>
     token,
     body: note ? { note } : {},
   });
+
+// ---- 跨服务审计日志（网关统一发射，仅管理员可读）----
+export const listAudit = (
+  token: string,
+  page = 0,
+  size = 20,
+  opts: { decision?: string; onlyDelete?: boolean } = {}
+) => {
+  const params = new URLSearchParams({ page: String(page), size: String(size) });
+  if (opts.decision) params.set("decision", opts.decision);
+  if (opts.onlyDelete) params.set("onlyDelete", "true");
+  return api<AuditPage>(`/api/audit?${params.toString()}`, { token });
+};
+
+export const getAuditStats = (token: string) =>
+  api<AuditStats>(`/api/audit/stats`, { token });

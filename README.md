@@ -35,6 +35,7 @@ A **Spring Boot + Spring Cloud** implementation equivalent to the `rbac-service`
 | auth-service | 4101 | User register/login, JWT issue & validation (Eureka/Config client) | H2 `./data/auth` |
 | rbac-service | 4102 | Roles (with inheritance) / permissions / grants, effective-permission resolution, permission check (Eureka/Config client) | H2 `./data/rbac` |
 | customer-service | 4103 | CRM customer domain (CRUD + search). Authorization delegated to the gateway PEP + RBAC PDP via `customers:read` / `customers:create` / `customers:update` / `customers:delete` | H2 `./data/customer` |
+| audit-service | 4104 | Cross-service audit log (append-only). The gateway emits an audit event after each PEP decision, asynchronously and best-effort; this service only persists and serves them to `audit:read` (admin only). Writes are allowed only from the gateway via service discovery (private header); the external route `/api/audit` is GET-only | H2 `./data/audit` |
 
 Internal services register with Eureka; only the gateway is exposed to the outside (PEP pattern).
 
@@ -162,6 +163,7 @@ make k3s-demo                 # port-forward 41000→4100, run demo
 | GET | `/api/approvals` | `customers:approve` | list approvals (default PENDING, `?status=` optional) |
 | POST | `/api/approvals/{id}/approve` | `customers:approve` | approve and perform the real deletion |
 | POST | `/api/approvals/{id}/reject` | `customers:approve` | reject approval (optional `note`) |
+| GET | `/api/audit` | `audit:read` | query recent audit records (default 200, `?limit=` allowed), admin only |
 
 All routes go through the gateway; the gateway validates JWT + does edge authorization before forwarding. No permission → 403, request never reaches downstream.
 

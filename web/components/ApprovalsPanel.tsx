@@ -10,6 +10,36 @@ import {
 import type { Permission } from "@/lib/permissions";
 import type { ApprovalDto } from "@/lib/types";
 
+const TYPE_LABELS: Record<string, string> = {
+  DELETE_CUSTOMER: "删除客户",
+};
+
+const STATUS_LABELS: Record<string, string> = {
+  PENDING: "待审批",
+  APPROVED: "已通过",
+  REJECTED: "已驳回",
+};
+
+/** 把后端 ISO 时间（如 2026-08-02T08:12:33.123）整理为可读形式。 */
+function fmtTime(v: string | null): string {
+  if (!v) return "—";
+  return v.replace("T", " ").replace(/\.\d+$/, "");
+}
+
+function StatusBadge({ status }: { status: string }) {
+  const cls =
+    status === "PENDING"
+      ? "lead"
+      : status === "APPROVED"
+        ? "customer"
+        : "prospect";
+  return (
+    <span className={`status status-${cls}`}>
+      {STATUS_LABELS[status] ?? status}
+    </span>
+  );
+}
+
 export default function ApprovalsPanel({
   token,
   can,
@@ -23,6 +53,7 @@ export default function ApprovalsPanel({
   const [err, setErr] = useState("");
   const [msg, setMsg] = useState("");
   const [busyId, setBusyId] = useState<number | null>(null);
+  const [detail, setDetail] = useState<ApprovalDto | null>(null);
 
   async function refresh() {
     try {
@@ -87,12 +118,14 @@ export default function ApprovalsPanel({
           gap: 6,
           alignItems: "center",
           marginBottom: 12,
+          whiteSpace: "nowrap",
         }}
       >
         <input
           type="checkbox"
           checked={onlyPending}
           onChange={(e) => setOnlyPending(e.target.checked)}
+          style={{ width: "auto" }}
         />
         仅看待审批
       </label>
@@ -102,7 +135,7 @@ export default function ApprovalsPanel({
       {items.length === 0 ? (
         <div className="meta">暂无审批单</div>
       ) : (
-        <table className="cust-table">
+        <table className="cust-table approvals-table">
           <thead>
             <tr>
               <th>ID</th>
@@ -118,24 +151,27 @@ export default function ApprovalsPanel({
             {items.map((a) => (
               <tr key={a.id}>
                 <td>{a.id}</td>
-                <td>{a.type}</td>
-                <td>{a.targetName ?? `#${a.targetId}`}</td>
-                <td>{a.applicant}</td>
-                <td>{a.createdAt ?? "—"}</td>
+                <td>{TYPE_LABELS[a.type] ?? a.type}</td>
                 <td>
-                  <span
-                    className={`status status-${
-                      a.status === "PENDING"
-                        ? "lead"
-                        : a.status === "APPROVED"
-                          ? "customer"
-                          : "prospect"
-                    }`}
-                  >
-                    {a.status}
+                  {a.targetName ?? "—"}
+                  <span style={{ color: "var(--muted)", fontSize: 12 }}>
+                    {" "}
+                    #{a.targetId}
                   </span>
                 </td>
+                <td>{a.applicant}</td>
+                <td>{fmtTime(a.createdAt)}</td>
+                <td>
+                  <StatusBadge status={a.status} />
+                </td>
                 <td className="actions">
+                  <button
+                    className="btn"
+                    style={{ marginRight: 6 }}
+                    onClick={() => setDetail(a)}
+                  >
+                    详情
+                  </button>
                   {a.status === "PENDING" && (
                     <>
                       <button
@@ -147,7 +183,7 @@ export default function ApprovalsPanel({
                       </button>
                       <button
                         className="btn btn-danger"
-                        style={{ marginLeft: 8 }}
+                        style={{ marginLeft: 6 }}
                         disabled={busyId === a.id}
                         onClick={() => decide(a.id, false)}
                       >
@@ -160,6 +196,79 @@ export default function ApprovalsPanel({
             ))}
           </tbody>
         </table>
+      )}
+
+      {detail && (
+        <div className="modal-backdrop" onClick={() => setDetail(null)}>
+          <div className="modal" onClick={(e) => e.stopPropagation()}>
+            <div className="modal-head">
+              <h3>审批详情 #{detail.id}</h3>
+              <button
+                className="btn"
+                type="button"
+                onClick={() => setDetail(null)}
+              >
+                关闭
+              </button>
+            </div>
+            <div className="modal-body">
+              <div className="detail-row">
+                <div className="k">类型</div>
+                <div className="v">{TYPE_LABELS[detail.type] ?? detail.type}</div>
+              </div>
+              <div className="detail-row">
+                <div className="k">客户</div>
+                <div className="v">
+                  {detail.targetName ?? "—"} (#{detail.targetId})
+                </div>
+              </div>
+              <div className="detail-row">
+                <div className="k">申请人</div>
+                <div className="v">{detail.applicant}</div>
+              </div>
+              <div className="detail-row">
+                <div className="k">申请时间</div>
+                <div className="v">{fmtTime(detail.createdAt)}</div>
+              </div>
+              <div className="detail-row">
+                <div className="k">状态</div>
+                <div className="v">
+                  <StatusBadge status={detail.status} />
+                </div>
+              </div>
+              <div className="detail-row">
+                <div className="k">审批时间</div>
+                <div className="v">{fmtTime(detail.decidedAt)}</div>
+              </div>
+              <div className="detail-row">
+                <div className="k">审批人</div>
+                <div className="v">{detail.approver ?? "—"}</div>
+              </div>
+              <div className="detail-row">
+                <div className="k">审批意见</div>
+                <div className="v">{detail.decisionNote ?? "—"}</div>
+              </div>
+            </div>
+            {detail.status === "PENDING" && (
+              <div className="modal-foot">
+                <button
+                  className="btn btn-primary"
+                  disabled={busyId === detail.id}
+                  onClick={() => decide(detail.id, true)}
+                >
+                  通过
+                </button>
+                <button
+                  className="btn btn-danger"
+                  disabled={busyId === detail.id}
+                  onClick={() => decide(detail.id, false)}
+                >
+                  驳回
+                </button>
+              </div>
+            )}
+          </div>
+        </div>
       )}
     </div>
   );
