@@ -55,6 +55,7 @@ spring-rbac/
 ├── scripts/demo.sh         # 端到端演示
 ├── DOCKER.md               # Docker Compose 与 k3s 运行手册 + 排错
 ├── ARCHITECTURE.md         # 架构深潜与设计决策
+├── docs/adr/               # 架构决策记录（PEP/PDP、熔断、审计、持久化等）
 └── README.md / README.zh.md
 ```
 

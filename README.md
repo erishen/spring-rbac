@@ -56,6 +56,7 @@ spring-rbac/
 ├── scripts/demo.sh         # end-to-end demo
 ├── DOCKER.md               # Docker Compose & k3s runbook + troubleshooting
 ├── ARCHITECTURE.md         # deep-dive architecture & design decisions
+├── docs/adr/               # architecture decision records (PEP/PDP, circuit breaker, audit, persistence)
 └── README.md
 ```
 

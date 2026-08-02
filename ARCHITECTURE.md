@@ -1,8 +1,9 @@
 # 架构文档：Spring Cloud RBAC 微服务
 
 > RBAC（基于角色的访问控制）微服务系统，基于 **Spring Boot 3.2.5 + Spring Cloud 2023.0.3（Java 17）**。
-> 由 5 个服务组成：服务注册中心、配置中心、认证服务、授权服务、API 网关。
+> 由 7 个服务组成：服务注册中心、配置中心、认证服务、授权服务、API 网关、CRM 客户域、审计服务。
 > 网关同时承担 **PEP（策略执行点）**，对跨服务的 PDP（策略决策点）调用接入 **Resilience4j 熔断**。
+> 关键架构决策与踩坑结论见 [docs/adr](./docs/adr/README.md)（ADR 编号索引）。
 
 ---
 
