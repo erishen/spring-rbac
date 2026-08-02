@@ -58,8 +58,8 @@ public class AuditService {
         );
     }
 
-    /** 构建过滤条件：按裁决结果精确匹配；onlyDelete 匹配动作含 delete（不区分大小写）。 */
-    private Specification<AuditLog> buildSpec(String decision, boolean onlyDelete) {
+    /** 构建过滤条件：按裁决结果精确匹配；onlyDelete 匹配动作含 delete（不区分大小写）；traceId 忽略大小写包含匹配。 */
+    private Specification<AuditLog> buildSpec(String decision, boolean onlyDelete, String traceId) {
         Specification<AuditLog> spec = Specification.where(null);
         if (decision != null && !decision.isBlank()) {
             spec = spec.and((root, q, cb) -> cb.equal(root.get("decision"), decision));
@@ -68,16 +68,21 @@ public class AuditService {
             spec = spec.and((root, q, cb) ->
                     cb.like(cb.lower(root.get("action")), "%delete%"));
         }
+        if (traceId != null && !traceId.isBlank()) {
+            String like = "%" + traceId.trim().toLowerCase() + "%";
+            spec = spec.and((root, q, cb) ->
+                    cb.like(cb.lower(root.get("traceId")), like));
+        }
         return spec;
     }
 
-    /** 分页查询审计记录（按时间倒序，其次 id 倒序），支持异常筛选。 */
-    public Page<AuditLogDto> paged(int page, int size, String decision, boolean onlyDelete) {
+    /** 分页查询审计记录（按时间倒序，其次 id 倒序），支持异常筛选与链路 ID 查询。 */
+    public Page<AuditLogDto> paged(int page, int size, String decision, boolean onlyDelete, String traceId) {
         int p = Math.max(0, page);
         int s = Math.max(1, Math.min(size, 100));
         Pageable pg = PageRequest.of(p, s,
                 Sort.by("createdAt").descending().and(Sort.by("id").descending()));
-        return repository.findAll(buildSpec(decision, onlyDelete), pg).map(this::toDto);
+        return repository.findAll(buildSpec(decision, onlyDelete, traceId), pg).map(this::toDto);
     }
 
     /** 今日审计概览：总操作数 / 被拒数 / 活跃用户数（排除匿名）。 */

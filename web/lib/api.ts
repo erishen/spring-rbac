@@ -138,11 +138,12 @@ export const listAudit = (
   token: string,
   page = 0,
   size = 20,
-  opts: { decision?: string; onlyDelete?: boolean } = {}
+  opts: { decision?: string; onlyDelete?: boolean; traceId?: string } = {}
 ) => {
   const params = new URLSearchParams({ page: String(page), size: String(size) });
   if (opts.decision) params.set("decision", opts.decision);
   if (opts.onlyDelete) params.set("onlyDelete", "true");
+  if (opts.traceId) params.set("traceId", opts.traceId);
   return api<AuditPage>(`/api/audit?${params.toString()}`, { token });
 };
 

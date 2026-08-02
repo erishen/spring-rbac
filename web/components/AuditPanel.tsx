@@ -36,6 +36,8 @@ export default function AuditPanel({
   });
   const [onlyDeny, setOnlyDeny] = useState(false);
   const [onlyDelete, setOnlyDelete] = useState(false);
+  const [traceInput, setTraceInput] = useState("");
+  const [trace, setTrace] = useState("");
   const [loading, setLoading] = useState(false);
   const [err, setErr] = useState("");
 
@@ -46,6 +48,7 @@ export default function AuditPanel({
         const res = await listAudit(token, p, s, {
           decision: onlyDeny ? "DENY" : undefined,
           onlyDelete,
+          traceId: trace || undefined,
         });
         setItems(res.content);
         setTotal(res.total);
@@ -58,7 +61,7 @@ export default function AuditPanel({
         setLoading(false);
       }
     },
-    [token, onlyDeny, onlyDelete]
+    [token, onlyDeny, onlyDelete, trace]
   );
 
   const loadStats = useCallback(async () => {
@@ -69,14 +72,19 @@ export default function AuditPanel({
     }
   }, [token]);
 
-  // size / 筛选变化回到第一页并刷新统计
+  // size / 筛选 / 链路搜索变化回到第一页并刷新统计
   useEffect(() => {
     if (canRead) {
       load(0, size);
       loadStats();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [token, canRead, size, onlyDeny, onlyDelete]);
+  }, [token, canRead, size, onlyDeny, onlyDelete, trace]);
+
+  const clearTrace = () => {
+    setTraceInput("");
+    setTrace("");
+  };
 
   if (!canRead) {
     return (
@@ -138,6 +146,29 @@ export default function AuditPanel({
             />
             只看删除
           </label>
+        </div>
+        <div className="audit-search">
+          <input
+            type="text"
+            value={traceInput}
+            placeholder="按链路 ID 查询…"
+            onChange={(e) => setTraceInput(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") setTrace(traceInput.trim());
+            }}
+          />
+          <button
+            className="btn"
+            disabled={loading}
+            onClick={() => setTrace(traceInput.trim())}
+          >
+            搜索
+          </button>
+          {trace && (
+            <button className="btn" onClick={clearTrace}>
+              清空
+            </button>
+          )}
         </div>
         <label className="audit-size">
           每页

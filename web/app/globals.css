@@ -599,6 +599,25 @@ button.link {
   margin-bottom: 12px;
   flex-wrap: wrap;
 }
+/* 链路 ID 搜索框：显式覆盖全局 input{width:100%}，避免撑满换行 */
+.audit-search {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+.audit-search input[type="text"] {
+  width: 180px;
+  padding: 5px 10px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--panel);
+  color: var(--text);
+  font-size: 13px;
+}
+.audit-search input[type="text"]:focus {
+  outline: none;
+  border-color: var(--accent);
+}
 /* 顶部统计卡：让审计从「能查」升级到「能监控」 */
 .stat-cards {
   display: grid;

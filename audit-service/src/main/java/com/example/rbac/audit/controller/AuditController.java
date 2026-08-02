@@ -44,13 +44,14 @@ public class AuditController {
         return auditService.stats();
     }
 
-    /** 分页查询审计记录（需 audit:read，由网关 PEP 把关；支持异常筛选）。 */
+    /** 分页查询审计记录（需 audit:read，由网关 PEP 把关；支持异常筛选与链路 ID 查询）。 */
     @GetMapping("/audit")
     public AuditPageDto list(@RequestParam(defaultValue = "0") int page,
                              @RequestParam(defaultValue = "20") int size,
                              @RequestParam(required = false) String decision,
-                             @RequestParam(defaultValue = "false") boolean onlyDelete) {
-        Page<AuditLogDto> p = auditService.paged(page, size, decision, onlyDelete);
+                             @RequestParam(defaultValue = "false") boolean onlyDelete,
+                             @RequestParam(required = false) String traceId) {
+        Page<AuditLogDto> p = auditService.paged(page, size, decision, onlyDelete, traceId);
         return new AuditPageDto(
                 p.getContent(), p.getTotalElements(), p.getNumber(), p.getSize(), p.getTotalPages());
     }
