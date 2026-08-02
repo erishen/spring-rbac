@@ -36,7 +36,7 @@ spring:
         - id: customer-api
           uri: lb://customer-service
           predicates:
-            - Path=/api/customers/**
+            - Path=/api/customers/**,/api/approvals/**
 
 management:
   endpoints:
