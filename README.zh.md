@@ -104,7 +104,7 @@ make web-start WEB_BACKEND=http://localhost:41000    # 后端在 k3s 端口转�
 
 启动即播种：`auth` 建三个登录账号——`admin/admin123`（全权，含 `customers:create/update/delete/approve`）、`user/user123`（`editor` 角色，可编辑、可申请删除(需审批)，含 `customers:read/create/update/delete`）、`viewer/viewer123`（只读，`viewer` 角色，含 `customers:read`）。`rbac` 建角色 `admin`/`editor`/`viewer`（三档，无继承）、权限 `users:read|write` `roles:read|write` `permissions:read` `customers:read|create|update|delete|approve`，并把 `admin`→`admin`、`user`→`editor`、`viewer`→`viewer` 绑定。H2 用 `ddl-auto=create`，每次启动都是干净种子状态。
 
-**删除走审批流**：任何角色点击「申请删除」客户（`customers:delete`）都不会立即删除，而是生成一张待审批单（`approvals` 表）；只有拥有 `customers:approve` 的管理员在「审批 Approvals」页通过后才真实删除。三档在删除上的差异：viewer 不能碰 / editor 可申请不可批 / admin 可发起可批。
+**删除走审批流（管理员直删）**：拥有 `customers:approve` 的管理员点击删除（`customers:delete`）会**直接生效**，无需走审批；其余角色（如 editor）点击「申请删除」会生成待审批单（`approvals` 表），由管理员在「审批 Approvals」页通过后才真实删除。三档在删除上的差异：viewer 不能碰 / editor 可申请不可批 / admin 可直接删且可批。
 
 ### 2. Docker Compose
 
@@ -147,7 +147,7 @@ make k3s-demo                 # 端口转发 41000→4100，跑 demo
 | GET | `/api/customers` | `customers:read` | 列出客户（分页） |
 | POST | `/api/customers` | `customers:create` | 新建客户 |
 | PUT | `/api/customers/{id}` | `customers:update` | 更新客户 |
-| DELETE | `/api/customers/{id}` | `customers:delete` | 申请删除（进入 `approvals` 审批流） |
+| DELETE | `/api/customers/{id}` | `customers:delete` | 管理员（`customers:approve`）直接删除返回 200；其余角色进入审批流返回 202 |
 | GET | `/api/approvals` | `customers:approve` | 列出审批单（默认 PENDING，可传 `?status=`） |
 | POST | `/api/approvals/{id}/approve` | `customers:approve` | 通过审批并执行真实删除 |
 | POST | `/api/approvals/{id}/reject` | `customers:approve` | 驳回审批（可选 `note`） |

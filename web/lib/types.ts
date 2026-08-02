@@ -82,3 +82,8 @@ export interface ApprovalDto {
   approver: string | null;
   decisionNote: string | null;
 }
+
+export interface DeleteResult {
+  deleted: boolean;
+  approvalId: number | null;
+}

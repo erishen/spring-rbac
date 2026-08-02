@@ -105,7 +105,7 @@ make web-start WEB_BACKEND=http://localhost:41000    # when the backend is behin
 
 Startup seeds: `auth` creates three login accounts — `admin/admin123` (full access, incl. `customers:create/update/delete/approve`), `user/user123` (`editor` role, can edit and request deletion (pending approval), incl. `customers:read/create/update/delete`), `viewer/viewer123` (read-only, `viewer` role, incl. `customers:read`). `rbac` creates roles `admin`/`editor`/`viewer` (three tiers, no inheritance), permissions `users:read|write` `roles:read|write` `permissions:read` `customers:read|create|update|delete|approve`, and grants `admin`→`admin`, `user`→`editor`, `viewer`→`viewer`. H2 uses `ddl-auto=create`, so every start is a clean seed state.
 
-**Deletion goes through an approval flow:** clicking "申请删除 / request delete" on a customer (`customers:delete`) does NOT delete immediately — it creates a pending approval request (`approvals` table). Only an admin with `customers:approve` can approve it on the "审批 Approvals" page, which then performs the real deletion. The three tiers differ on deletion: viewer cannot touch / editor can request but not approve / admin can both request and approve.
+**Deletion goes through an approval flow (admin deletes directly):** an admin with `customers:approve` deletes a customer (`customers:delete`) **immediately** — no approval needed. Other roles (e.g. editor) clicking "申请删除 / request delete" create a pending approval request (`approvals` table); an admin approves it on the "审批 Approvals" page to perform the real deletion. The three tiers differ on deletion: viewer cannot touch / editor can request but not approve / admin can both delete directly and approve.
 
 **CRM sample data from CSV (optional, local-only):** if the env var `CRM_SEED_CSV` points to an existing CSV file at `customer-service` startup, the customers table is seeded from that file instead of the 3 built-in samples (mapping: `name`←通讯录姓名/回退微信备注名, `phone`←手机号, `email`←邮箱, `status`←lead, `notes`←来源/微信ID/ID类型/归属地/运营商/匹配方式). Example:
 
@@ -158,7 +158,7 @@ make k3s-demo                 # port-forward 41000→4100, run demo
 | GET | `/api/customers` | `customers:read` | list customers (paginated) |
 | POST | `/api/customers` | `customers:create` | create customer |
 | PUT | `/api/customers/{id}` | `customers:update` | update customer |
-| DELETE | `/api/customers/{id}` | `customers:delete` | request deletion (enters `approvals` flow) |
+| DELETE | `/api/customers/{id}` | `customers:delete` | admin (`customers:approve`) deletes directly (200); other roles enter the approval flow (202) |
 | GET | `/api/approvals` | `customers:approve` | list approvals (default PENDING, `?status=` optional) |
 | POST | `/api/approvals/{id}/approve` | `customers:approve` | approve and perform the real deletion |
 | POST | `/api/approvals/{id}/reject` | `customers:approve` | reject approval (optional `note`) |
