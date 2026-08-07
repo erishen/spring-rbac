@@ -1,0 +1,19 @@
+# 测试专用配置：内存 H2 + 关闭 Config/Eureka 客户端，保证 @DataJpaTest 切片干净快速。
+spring:
+  datasource:
+    url: jdbc:h2:mem:testdb;DB_CLOSE_DELAY=-1
+    driver-class-name: org.h2.Driver
+    username: sa
+    password: ""
+  jpa:
+    hibernate:
+      ddl-auto: create-drop
+    open-in-view: false
+  cloud:
+    config:
+      enabled: false
+eureka:
+  client:
+    enabled: false
+    register-with-eureka: false
+    fetch-registry: false

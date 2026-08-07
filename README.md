@@ -4,6 +4,8 @@ A **Spring Boot + Spring Cloud** implementation equivalent to the `rbac-service`
 
 > Tech stack: Java 17 · Spring Boot 3.2.5 · Spring Cloud 2023.0.3 · Spring Cloud Gateway (WebFlux) · Eureka · Config Server (native) · Spring Data JPA · H2 · Maven (multi-module)
 
+> **沿革**：本项目是早期 Node.js 原型 `rbac-service` 的 Java 重写与超集（完整对比见上级目录 [`../rbac-consolidation.md`](../rbac-consolidation.md)）。该 Node 原型已归档至 [`../_archived/rbac-service-node/`](../_archived/rbac-service-node/)，仅作教学参考，不再维护。
+
 ## Architecture
 
 ```
