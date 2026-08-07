@@ -289,7 +289,7 @@ Spring Cloud Gateway **同一路由下的多个谓词是 AND 关系**。曾写�
 快速开始：
 
 ```bash
-cd work/research/spring-rbac
+cd personal/web-services/spring-rbac
 make build      # 在线构建 5 个 jar（首次需联网补齐传递依赖）
 make start      # 启动并等待就绪
 make demo       # 经网关端到端验证
