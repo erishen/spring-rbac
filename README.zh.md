@@ -182,3 +182,10 @@ make k3s-demo                 # 端口转发 41000→4100，跑 demo
 
 - `ARCHITECTURE.md` — 架构深潜、时序图、熔断与 fail-closed、Eureka 加固、路由谓词坑。
 - `DOCKER.md` — Docker Compose 与 k3s 运行手册，含排错（imagePullPolicy、缺 CMD/CrashLoopBackOff、证书过期、JAVA_TOOL_OPTIONS 注入）。
+
+---
+
+## 相关文章
+
+- 中文: [Spring RBAC：零依赖微服务鉴权](https://erishen.cn/spring_rbac/)
+- English: [Spring RBAC: Zero-Dependency Microservice Auth](https://erishen.cn/spring_rbac-en/)

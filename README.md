@@ -190,3 +190,10 @@ All routes go through the gateway; the gateway validates JWT + does edge authori
 
 - `ARCHITECTURE.md` — architecture deep-dive, sequence diagrams, circuit-breaker & fail-closed, Eureka hardening, route-predicate pitfalls.
 - `DOCKER.md` — Docker Compose & k3s runbook, including troubleshooting (imagePullPolicy, missing CMD/CrashLoopBackOff, certificate expiry, JAVA_TOOL_OPTIONS injection).
+
+---
+
+## Related Articles
+
+- English: [Spring RBAC: Zero-Dependency Microservice Auth](https://erishen.cn/spring_rbac-en/)
+- 中文: [Spring RBAC：零依赖微服务鉴权](https://erishen.cn/spring_rbac/)
