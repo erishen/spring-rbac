@@ -186,6 +186,4 @@ make k3s-demo                 # 端口转发 41000→4100，跑 demo
 ---
 
 ## 相关文章
-
-- 中文: [Spring RBAC：零依赖微服务鉴权](https://erishen.cn/spring_rbac/)
-- English: [Spring RBAC: Zero-Dependency Microservice Auth](https://erishen.cn/spring_rbac-en/)
+- [从 RBAC 鉴权长成的小型微服务系统：Spring Cloud + 零依赖 JWT + CRM + 审计 + BFF](https://erishen.cn/spring_rbac/)
