@@ -195,3 +195,4 @@ All routes go through the gateway; the gateway validates JWT + does edge authori
 
 ## Related Articles
 - [From RBAC Authentication to a Small Microservice System: Spring Cloud + Zero-Dependency JWT + CRM + Audit + BFF](https://erishen.cn/spring_rbac-en/)
+- [从 RBAC 鉴权长成的小型微服务系统：Spring Cloud + 零依赖 JWT + CRM + 审计 + BFF](https://erishen.cn/spring_rbac/)
